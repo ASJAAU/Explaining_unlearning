@@ -66,6 +66,9 @@ class REPAIHarborfrontDataset(Dataset):
         image = read_image(self.images.iloc[idx])
         label = self.labels.iloc[idx]
 
+        #remap image to [0-1]
+        image = image/255
+
         if self.transform:
             image = self.transform(image)
 
