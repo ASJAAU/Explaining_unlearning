@@ -3,7 +3,7 @@ training:
   epochs: 20
   lr: 0.1
   lr_steps: 5000
-  lr_decay: 0.9
+  lr_decay: 0.1
   batch_size: 8
   validation_steps: 10000
 
@@ -15,7 +15,6 @@ model:
   - "motorcycle"
   - "vehicle"
   expose_featuremap: False
-  final_activation: "relu"
   name: "ResNet56_counter_default"
   exp: "DEFAULT_SETTINGS"
 
@@ -28,7 +27,7 @@ data:
   - 288
   - 384
   - 3
-  binary_cls: False
+  target_format: 'multilabel_counts'
 
 wandb:
   enabled: False
