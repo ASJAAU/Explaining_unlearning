@@ -1,0 +1,38 @@
+base: ""
+training:
+  epochs: 20
+  lr: 0.1
+  lr_steps: 5000
+  lr_decay: 0.9
+  batch_size: 8
+  validation_steps: 10000
+
+model:
+  size: 56
+  classes:
+  - "human"
+  - "bicycle"
+  - "motorcycle"
+  - "vehicle"
+  expose_featuremap: False
+  final_activation: "relu"
+  name: "ResNet56_counter_default"
+  exp: "DEFAULT_SETTINGS"
+
+data:
+  root: "/Data/Harborfront_raw/"
+  train: "data/Train_data.csv"
+  valid: "data/Valid_data.csv"
+  test: "data/Test_data.csv"
+  im_size: 
+  - 288
+  - 384
+  - 3
+  binary_cls: False
+
+wandb:
+  enabled: False
+  log_freq: 100 #Number of batches
+  project_name: "REPAI_XAIE_WORKSHOP"
+  tags:
+    - counting

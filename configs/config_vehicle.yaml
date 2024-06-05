@@ -1,0 +1,7 @@
+base: config.yaml
+
+model:
+  classes:
+  - "vehicle"
+  name: "ResNet56_counter_vehicle_class"
+  exp: "baseline01"

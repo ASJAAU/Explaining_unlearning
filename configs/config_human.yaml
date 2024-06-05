@@ -1,0 +1,7 @@
+base: config.yaml
+
+model:
+  classes:
+  - "human"
+  name: "ResNet56_counter_Human"
+  exp: "baseline02"
