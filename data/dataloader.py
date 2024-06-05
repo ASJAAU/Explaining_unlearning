@@ -2,6 +2,7 @@ import itertools
 import pandas as pd
 import numpy as np
 import os
+import torch
 from torchvision.io import read_image
 from torch.utils.data import Dataset
 
@@ -16,7 +17,7 @@ class REPAIHarborfrontDataset(Dataset):
 
     __KNOWN_TARGETS__ = ['multilabel_counts', 'multilabel_binary', 'counts', 'binary']
 
-    def __init__(self, data_split, root, transform=None, target_transform=None, classes=CLASS_LIST.values(), target_format='multilabel_counts', verbose=False) -> None:
+    def __init__(self, data_split, root, transform=None, target_transform=None, classes=CLASS_LIST.values(), target_format='multilabel_counts', device='cpu', verbose=False) -> None:
         if verbose:
             print(f'Loading "{data_split}"')
             print(f'Target Classes {classes}')
@@ -24,6 +25,9 @@ class REPAIHarborfrontDataset(Dataset):
         #Transform objects
         self.transform = transform
         self.target_transform = target_transform
+
+        #Use target device for storage
+        self.device = device
 
         #Load dataset file
         self.root = root
@@ -64,10 +68,7 @@ class REPAIHarborfrontDataset(Dataset):
 
     def __getitem__(self, idx):
         image = read_image(self.images.iloc[idx])
-        label = self.labels.iloc[idx]
-
-        #remap image to [0-1]
-        image = image/255
+        label = torch.Tensor(self.labels.iloc[idx])
 
         if self.transform:
             image = self.transform(image)
@@ -75,7 +76,7 @@ class REPAIHarborfrontDataset(Dataset):
         if self.target_transform:
             label = self.target_transform(label)
 
-        return image, label
+        return image.to(self.device), label.to(self.device)
     
     def __repr__(self):
         return self.dataset.__str__() 
