@@ -1,6 +1,5 @@
 import argparse
-import yaml
-import datetime
+from datetime import datetime
 import tqdm
 
 from models.resnet import *
@@ -8,8 +7,9 @@ from data.dataloader import REPAIHarborfrontDataset
 from utils.metrics import Logger, get_metrics
 from utils.saving import existsfolder, get_config
 import torch
-from torch.utils.data import Dataloader
+from torch.utils.data import DataLoader
 from torchvision.transforms import v2 as torch_transforms
+import timm
 
 if __name__ == "__main__":
     #CLI
@@ -29,9 +29,11 @@ if __name__ == "__main__":
     train_transforms = torch_transforms.Compose([
         torch_transforms.RandomHorizontalFlip(p=0.5),
         torch_transforms.ToDtype(torch.float32, scale=True),
+        torch_transforms.ToTensor(),
     ])
     valid_transforms = torch_transforms.Compose([
         torch_transforms.ToDtype(torch.float32, scale=True),
+        torch_transforms.ToTensor(),
     ])
 
     print("\n########## LOADING DATA ##########")
@@ -54,22 +56,26 @@ if __name__ == "__main__":
         )
     
     print("Creating training dataloader:")
-    train_dataloader = Dataloader(
+    train_dataloader = DataLoader(
         train_dataset, 
         batch_size=cfg["training"]["batch_size"], 
         shuffle=True
         )
     
     print("Creating validation dataloader:")
-    valid_dataloader = Dataloader(
+    valid_dataloader = DataLoader(
         valid_dataset,
         batch_size=cfg["training"]["batch_size"]
         )
     
     #Define Model
     print("\n########## BUILDING MODEL ##########")
-    print(f'Building model: ResNet{cfg["model"]["size"]}')
-    model = Resnet(cfg)
+    model = timm.create_model(
+            'resnet50d', 
+            pretrained=False, 
+            in_chans=1, 
+            num_classes = len(cfg["data"]["classes"]),
+            ).to(args.device)
 
     #Define optimizer
     optimizer= torch.optim.Adam(
@@ -101,7 +107,7 @@ if __name__ == "__main__":
     logger = Logger(cfg, out_folder=out_folder)
 
     print("\n########## TRAINING MODEL ##########")
-    for epoch in tqdm.tqdm(range(cfg["training"]["epochs"]), unit="Epoch"):
+    for epoch in tqdm.tqdm(range(cfg["training"]["epochs"]), unit="Epoch", desc="Epochs"):
         #Train
         model.train()
         running_loss = 0
@@ -111,6 +117,7 @@ if __name__ == "__main__":
             
             #Seperate batch
             inputs, labels = batch
+            print(inputs, labels)
             
             #Forward
             outputs = model(inputs)
@@ -146,6 +153,7 @@ if __name__ == "__main__":
         for i, batch in tqdm.tqdm(enumerate(valid_dataloader), unit="Batch", desc="Validating", leave=False):
             #Seperate batch
             inputs, labels = batch
+            print(inputs, labels)
             
             #Forward
             outputs = model(inputs)
