@@ -1,7 +1,0 @@
-base: config.yaml
-
-model:
-  classes:
-  - "bicycle"
-  name: "ResNet56_counter_bicycle_class"
-  exp: "baseline01"

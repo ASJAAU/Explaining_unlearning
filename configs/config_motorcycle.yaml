@@ -1,7 +1,0 @@
-base: config.yaml
-
-model:
-  classes:
-  - "motorcycle"
-  name: "ResNet56_counter_motorcycle_class"
-  exp: "baseline01"

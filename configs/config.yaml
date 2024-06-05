@@ -9,24 +9,19 @@ training:
 
 model:
   size: 56
+  name: "ResNet56_counter_default"
+  exp: "DEFAULT_SETTINGS"
+
+data:
   classes:
   - "human"
   - "bicycle"
   - "motorcycle"
   - "vehicle"
-  expose_featuremap: False
-  name: "ResNet56_counter_default"
-  exp: "DEFAULT_SETTINGS"
-
-data:
   root: "/Data/Harborfront_raw/"
   train: "data/Train_data.csv"
   valid: "data/Valid_data.csv"
   test: "data/Test_data.csv"
-  im_size: 
-  - 288
-  - 384
-  - 3
   target_format: 'multilabel_counts'
 
 wandb:
