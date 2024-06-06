@@ -1,15 +1,16 @@
 base: ""
+
 training:
   epochs: 20
   lr: 0.1
   lr_steps: 5000
   lr_decay: 0.1
-  batch_size: 8
+  batch_size: 48
   validation_steps: 10000
 
 model:
-  size: 56
-  name: "ResNet56_counter_default"
+  arch: "resnet50d" 
+  task: "counter"
   exp: "DEFAULT_SETTINGS"
 
 data:
@@ -19,14 +20,15 @@ data:
   - "motorcycle"
   - "vehicle"
   root: "/Data/Harborfront_raw/"
-  train: "data/Train_data.csv"
-  valid: "data/Valid_data.csv"
-  test: "data/Test_data.csv"
+  train: "/Data/Harborfront_raw/repai/Train_data.csv"
+  valid: "/Data/Harborfront_raw/repai/Valid_data.csv"
+  test: "/Data/Harborfront_raw//repai/Test_data.csv"
   target_format: 'multilabel_counts'
 
 wandb:
   enabled: False
-  log_freq: 100 #Number of batches
+  mode: "training"
+  log_freq: 500 #Number of batches
   project_name: "REPAI_XAIE_WORKSHOP"
   tags:
-    - counting
+    - Baseline
