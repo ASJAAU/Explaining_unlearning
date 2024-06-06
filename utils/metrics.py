@@ -1,20 +1,23 @@
 import numpy as np
 from functools import partial
 
-def get_metrics(target_format, classwise=[]):
+def get_metrics(target_format, classwise=[], plots=False):
     if 'count' in target_format:
         metrics = {}
         metrics["MAE"] = mae
+        metrics["MASE"] = mase
         #metrics["MAPE"] = mape #Yields NaN when gt is 0
         metrics["RMSE"] = rmse
-        #metrics["R2"] = r2 
         
         #Classwise metrics
         for i,c in enumerate(classwise):
             metrics[f"MAE_{c}"] = partial(mae, idx=i)
+            metrics[f"MASE_{c}"] = partial(mase, idx=i)
             #metrics[f"MAPE_{c}"] = partial(mape, idx=i) #Yields NaN when gt is 0
             metrics[f"RMSE_{c}"] = partial(rmse, idx=i)
-            #metrics[f"R2_{c}"] = partial(r2, idx=i) #Not implemented
+        #IF plots
+
+        
         return metrics
     else:
         print("DONT RECOGNIZE THE TARGET FORMAT, OMITTING EVALUATION METRICS")
@@ -52,7 +55,7 @@ class Logger:
         to_log = {}
 
         #Add xargs to log
-        for k,v in xargs:
+        for k,v in xargs.items():
             to_log[k]=v
 
         # Apply metrics
@@ -86,7 +89,9 @@ def wandb_logger(cfg, output_path="./wandb"):
         return wandb_logger
     else:
         return None
-    
+
+
+ ## METRICS   
 def mae(preds, labels, idx=None):
     if idx is None: #Calculating total MAE
         return np.mean(abs(preds-labels))
@@ -98,6 +103,12 @@ def mape(preds, labels, idx=None):
         return np.mean((abs(preds-labels)/labels)*100)
     else: #Calculating class specific MAPE
         return np.mean((abs(preds[:,idx]-labels[:,idx])/labels)*100)
+    
+def mase(preds, labels, idx=None):
+    if idx is None: #Calculating total MASE
+        return np.mean(abs(preds-labels)) / np.mean(abs(labels-np.tile(np.mean(labels, axis=0),(labels.shape[0],1))))
+    else: #Calculating class specific MASE
+        return np.mean(abs(preds[:,idx]-labels[:,idx])) / np.mean(abs(labels[:,idx]-np.tile(np.mean(labels[:,idx], axis=0),(labels.shape[0],1))))
 
 def rmse(preds, labels, idx=None):
     if idx is None: #Calculating total RMSE
@@ -107,6 +118,12 @@ def rmse(preds, labels, idx=None):
 
 def r2(preds, labels, idx=None):
     return None
+
+## PLOTS
+def confussion_matrix(preds, labels, idx=None):
+    max_val = max(max(preds), max(labels))
+    cm = np.zeroes(())
+    return
 
 if __name__ == '__main__':
     import yaml
@@ -119,7 +136,7 @@ if __name__ == '__main__':
         [1,1,0,0],
         [1,1,0,0],
         [1,1,0,0],
-        [1,1,2,0],
+        [1,1,2,1],
         ],
         dtype=np.float32)
     
@@ -127,7 +144,7 @@ if __name__ == '__main__':
         [0,1,0,0],
         [1,1,0,0],
         [1,1,0,0],
-        [1,1,2,0],
+        [1,1,2,1],
         ],
         dtype=np.float32)
     
