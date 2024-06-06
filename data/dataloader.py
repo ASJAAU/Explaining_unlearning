@@ -37,9 +37,6 @@ class REPAIHarborfrontDataset(Dataset):
         for c in classes:
             assert c in self.CLASS_LIST.values(), f'{c} is not a known class. \n Known classes:{",".join(self.CLASS_LIST.values())}' 
         self.classes = list(classes)
-        
-        #Asset target format is known
-        assert target_format in self.__KNOWN_TARGETS__, f'{c} is not a known target format. \n Known formats:{", ".join(self.__KNOWN_TARGETS__)}'
 
         #Create dataset of relevant info
         dataset = {"file_name": list(data['file_name'])}
@@ -52,11 +49,17 @@ class REPAIHarborfrontDataset(Dataset):
         #Join paths with root
         self.images = self.dataset.apply(lambda x: os.path.join(root, x["file_name"]), axis=1)
         
+        #Asset target format is known
+        assert target_format in self.__KNOWN_TARGETS__, f'{target_format} is not a known target format. \n Known formats:{", ".join(self.__KNOWN_TARGETS__)}'  
         #Format labels
         if target_format == 'multilabel_binary': 
             self.labels = self.dataset.apply(lambda x: np.asarray([1 if int(x[g]) > 0 else 0 for g in self.classes],dtype=np.int8), axis=1)
         elif target_format == 'multilabel_counts': 
             self.labels = self.dataset.apply(lambda x: np.asarray([float(x[g]) for g in self.classes],dtype=np.int8), axis=1)
+        elif target_format == 'counts': 
+            self.labels = self.dataset.apply(lambda x: np.asarray([np.sum([float(x[g]) for g in self.classes])],dtype=np.int8), axis=1)
+        elif target_format == 'binary': 
+            self.labels = self.dataset.apply(lambda x: np.asarray([1 if any([True if int(x[g]) > 0 else 0 for g in self.classes]) else 0],dtype=np.int8), axis=1) 
 
         #Just a sanity check
         if verbose:
@@ -79,7 +82,7 @@ class REPAIHarborfrontDataset(Dataset):
         return image.to(self.device), label.to(self.device)
     
     def __repr__(self):
-        return self.dataset.__str__() 
+        return self.dataset.__str__()
 
     def __str__(self):
         sample=self.__getitem__(0)

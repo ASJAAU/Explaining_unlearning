@@ -5,14 +5,14 @@ def get_metrics(target_format, classwise=[], plots=False):
     if 'count' in target_format:
         metrics = {}
         metrics["MAE"] = mae
-        metrics["MASE"] = mase
+        #metrics["MASE"] = mase
         #metrics["MAPE"] = mape #Yields NaN when gt is 0
         metrics["RMSE"] = rmse
         
         #Classwise metrics
         for i,c in enumerate(classwise):
             metrics[f"MAE_{c}"] = partial(mae, idx=i)
-            metrics[f"MASE_{c}"] = partial(mase, idx=i)
+            #metrics[f"MASE_{c}"] = partial(mase, idx=i)
             #metrics[f"MAPE_{c}"] = partial(mape, idx=i) #Yields NaN when gt is 0
             metrics[f"RMSE_{c}"] = partial(rmse, idx=i)
         #IF plots
@@ -81,7 +81,7 @@ def wandb_logger(cfg, output_path="./wandb"):
     import wandb
     if cfg["wandb"]["enabled"]:
         wandb_logger = wandb.init(
-            project=cfg["wand"]["project_name"],
+            project=cfg["wandb"]["project_name"],
             config=cfg,
             tags=cfg["wandb"]["tags"],
             dir=output_path,

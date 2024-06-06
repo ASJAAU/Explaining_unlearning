@@ -2,6 +2,7 @@ import argparse
 from datetime import datetime
 import tqdm
 import yaml
+import numpy as np
 
 from models.resnet import *
 from data.dataloader import REPAIHarborfrontDataset
@@ -42,8 +43,9 @@ if __name__ == "__main__":
         torch_transforms.ToTensor(),
     ])
 
-    #Create datasets and dataloaders
-    print("\n########## LOADING DATA ##########")
+    print("\n########## PREPARING DATA ##########")
+    print("\n### CREATING TRAINING DATASET")
+    #initialize training dataset
     train_dataset = REPAIHarborfrontDataset(
         data_split=cfg["data"]["train"],
         root=cfg["data"]["root"],
@@ -53,7 +55,21 @@ if __name__ == "__main__":
         device=args.device,
         verbose=True, #Print status and overview
         )
-
+    
+    #initialize training dataloader
+    print("Creating training dataloader:")
+    train_dataloader = DataLoader(
+        train_dataset, 
+        batch_size=cfg["training"]["batch_size"], 
+        shuffle=True
+        )
+    #print example batch (sanity check)
+    dummy_sample = next(iter(train_dataloader))
+    print(f"Input Tensor = {dummy_sample[0].shape}")
+    print(f"Label Tensor = {dummy_sample[1].shape}")
+    
+    print("\n### CREATING VALIDATION DATASET")
+    #initialize training dataset
     valid_dataset = REPAIHarborfrontDataset(
         data_split=cfg["data"]["valid"],
         root=cfg["data"]["root"],
@@ -64,26 +80,25 @@ if __name__ == "__main__":
         verbose=True, #Print status and overview
         )
     
-    print("Creating training dataloader:")
-    train_dataloader = DataLoader(
-        train_dataset, 
-        batch_size=cfg["training"]["batch_size"], 
-        shuffle=True
-        )
-    
+    #initialize validation dataloader
     print("Creating validation dataloader:")
     valid_dataloader = DataLoader(
         valid_dataset,
         batch_size=cfg["training"]["batch_size"]
         )
+    #print example batch (sanity check)
+    dummy_sample = next(iter(valid_dataloader))
+    print(f"Input Tensor = {dummy_sample[0].shape}")
+    print(f"Label Tensor = {dummy_sample[1].shape}")
 
-    #Define Model
     print("\n########## BUILDING MODEL ##########")
+    #Define length of output vector
+    num_cls = 1 if 'multilabel' not in cfg["data"]["target_format"] else len(cfg["data"]["classes"])
     model = timm.create_model(
-            'resnet50d', 
+            cfg["model"]["arch"], 
             pretrained=False, 
             in_chans=1, 
-            num_classes = len(cfg["data"]["classes"]),
+            num_classes = num_cls,
             ).to(args.device)
 
     #Define optimizer
@@ -117,7 +132,12 @@ if __name__ == "__main__":
         yaml.dump(cfg, f, default_flow_style=False)
 
     # Logging
-    logger = Logger(cfg, out_folder=out_folder)
+    if 'multilabel' not in cfg["data"]["target_format"]:
+        logger = Logger(cfg, out_folder=out_folder)
+    elif 'multilabel' in cfg["data"]["target_format"]:
+        logger = Logger(cfg, out_folder=out_folder, classwise_metrics=cfg["data"]["classes"])
+    else: 
+        raise Exception(f"Logging for {cfg['data']['target_format']} is improperly retrieved")
 
     print("\n########## TRAINING MODEL ##########")
     for epoch in tqdm.tqdm(range(cfg["training"]["epochs"]), unit="Epoch", desc="Epochs"):
