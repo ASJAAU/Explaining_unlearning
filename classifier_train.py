@@ -7,7 +7,7 @@ import numpy as np
 from models.resnet import *
 from data.dataloader import REPAIHarborfrontDataset
 from utils.metrics import Logger, get_metrics
-from utils.saving import existsfolder, get_config
+from utils.utils import existsfolder, get_config
 
 import torch
 from torch.utils.data import DataLoader
@@ -23,6 +23,7 @@ if __name__ == "__main__":
     #Optional
     parser.add_argument("--device", default="cuda:0", help="Which device to prioritize")
     parser.add_argument("--output", default="./assets/", help="Where to save the model weights")
+    parser.add_argument("--verbose", default=False, action='store_true', help="Enable verbose status printing")
     args = parser.parse_args()        
 
     print("\n########## CLASSIFY-EXPLAIN-REMOVE ##########")
@@ -53,7 +54,7 @@ if __name__ == "__main__":
         transform=train_transforms,
         target_format=cfg["data"]["target_format"],
         device=args.device,
-        verbose=True, #Print status and overview
+        verbose=args.verbose, #Print status and overview
         )
     
     #initialize training dataloader
@@ -77,7 +78,7 @@ if __name__ == "__main__":
         transform=valid_transforms,
         target_format=cfg["data"]["target_format"],
         device=args.device,
-        verbose=True, #Print status and overview
+        verbose=args.verbose, #Print status and overview
         )
     
     #initialize validation dataloader

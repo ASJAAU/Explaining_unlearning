@@ -87,11 +87,3 @@ class REPAIHarborfrontDataset(Dataset):
     def __str__(self):
         sample=self.__getitem__(0)
         return f'Harborfront Dataset (Pytorch)' + f"\nExample input: {sample[0].shape} \n{sample[0]}" + f"\nExample label: {sample[1].shape} \n{sample[1]}"
-
-    
-if __name__ == "__main__":
-    import numpy as np
-    dataset = REPAIHarborfrontDataset("data/Test_data.csv", "/Data/Harborfront_raw/", verbose=True)
-    print(dataset)
-    print("------ Dataset overview ------")
-    print(dataset.__repr__())
