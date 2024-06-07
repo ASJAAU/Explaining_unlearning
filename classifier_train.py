@@ -116,13 +116,13 @@ if __name__ == "__main__":
         )
     
     #Define loss
-    loss_fn = torch.nn.BCEWithLogitsLoss()
+    loss_fn = torch.nn.CrossEntropyLoss()#torch.nn.BCEWithLogitsLoss()
 
     #Retrieve metrics for logging 
     metrics = get_metrics(cfg["data"]["target_format"])
 
     #Create output folder
-    out_folder = f'{args.output}/{cfg["model"]["task"]}-{cfg["model"]["arch"]}-{datetime.now().strftime("%Y-%m-%d-%H:%M")}'
+    out_folder = f'{args.output}/{cfg["model"]["task"]}-{cfg["model"]["arch"]}-{datetime.now().strftime("%Y_%m_%d_%H-%M")}'
     print(f"Saving weights and logs at '{out_folder}'")
     existsfolder(out_folder)
     existsfolder(out_folder+"/weights")
