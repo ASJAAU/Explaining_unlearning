@@ -7,8 +7,8 @@ import numpy as np
 from models.resnet import *
 from data.dataloader import REPAIHarborfrontDataset
 from utils.metrics import Logger, get_metrics
-from utils.saving import existsfolder, get_config
-from utils.unlearning import confuse_vision
+from utils.utils import existsfolder, get_config
+from utils.unlearning import confuse_vision, forget_loss
 
 import torch
 from torch.utils.data import DataLoader
@@ -147,7 +147,7 @@ if __name__ == "__main__":
         )
     
     #Define loss
-    loss_fn = torch.nn.BCEWithLogitsLoss()
+    loss_fn = torch.nn.CrossEntropyLoss()
 
     #Retrieve metrics for logging 
     metrics = get_metrics(cfg["data"]["target_format"])
