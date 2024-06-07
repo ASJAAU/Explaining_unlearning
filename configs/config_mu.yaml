@@ -1,0 +1,9 @@
+base: "configs/config.yaml"
+
+unlearning:
+  noise_scale: 1
+  noise_scale_2: 0.01
+  epochs_2: 10
+  transpose: True
+  reinit_last: True  
+  train_dense: True
