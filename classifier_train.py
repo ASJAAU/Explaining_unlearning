@@ -129,6 +129,7 @@ if __name__ == "__main__":
     existsfolder(out_folder+"/weights")
 
     #Save copy of config
+    cfg["folder_name"] = out_folder
     with open(out_folder + "/config.yaml", 'w') as f:
         yaml.dump(cfg, f, default_flow_style=False)
 
