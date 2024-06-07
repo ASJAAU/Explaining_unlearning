@@ -19,10 +19,31 @@ def confuse_vision(model, noise_scale, trans = True, reinit_last = True, train_d
 
     #Add noise to each kernel
     for i, conv in tqdm(enumerate(conv_layers), total=len(conv_layers)):
-        kernel, bias = conv.weight.data, conv.bias.data
+        print(conv)
+        kernel = torch.clone(conv.weight)
+        
+        if conv.bias:
+            bias = torch.clone(conv.bias)
+            print(f"Layer {i}: {bias.shape}")
+        else: 
+            bias = nn.Parameter(torch.zeros(conv.out_channels))
+            #bias = "Anders"
+            conv.bias = bias
+
 
         print(f"Layer {i}: {kernel.shape}")
-
-
-        if i == 3:
+        conv.weight = nn.Parameter(torch.zeros(kernel.size()))
+        print(conv.weight)
+        if i == 1:
             break
+
+    
+    conv_layers = [m for m in model.modules() if isinstance(m, nn.Conv2d)]
+    for i, conv in tqdm(enumerate(conv_layers), total=len(conv_layers)):
+        print(conv.weight)
+        print(conv.bias)
+        if i == 1: 
+            break
+
+def forget_loss():
+    pass

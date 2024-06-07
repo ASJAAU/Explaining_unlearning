@@ -4,9 +4,8 @@ import tqdm
 import yaml
 import numpy as np
 
-from models.resnet import *
 from data.dataloader import REPAIHarborfrontDataset
-from utils.metrics import Logger, get_metrics
+from utils.utils import Logger, get_metrics
 from utils.utils import existsfolder, get_config
 from utils.unlearning import confuse_vision, forget_loss
 
@@ -50,6 +49,40 @@ if __name__ == "__main__":
     label_transforms  = torch_transforms.Compose([
         torch_transforms.ToTensor(),
     ])
+
+    
+    print("\n########## BUILDING MODEL ##########")
+    #Define length of output vector
+    num_cls = 1 if 'multilabel' not in cfg["data"]["target_format"] else len(cfg["data"]["classes"])
+    model = timm.create_model(
+            cfg["model"]["arch"], 
+            pretrained=False, 
+            in_chans=1, 
+            num_classes = num_cls,
+            ).to(args.device)
+    
+    #Print model summary
+    print(model)
+
+    #Load weights 
+    try:
+        model.load_state_dict(torch.load(args.weights))
+        print(f"Loaded weights from '{args.weights}'")
+
+        #Print model summary
+        print(model)
+
+    except:
+        raise Exception(f"Failed to load weights from '{args.weights}'")
+
+    # Confuse vision (add Gaussian noise to convolutional kernels)
+    print("\n########## CONFUSING VISION ##########")
+    model = confuse_vision(model, 
+                noise_scale = cfg["unlearning"]["noise_scale"], 
+                trans = cfg["unlearning"]["transpose"], 
+                reinit_last = cfg["unlearning"]["reinit_last"],
+                train_dense = cfg["unlearning"]["train_dense"])
+    print(model)
 
     print("\n########## PREPARING DATA ##########")
     print("\n### CREATING TRAINING DATASET")
@@ -98,39 +131,6 @@ if __name__ == "__main__":
     dummy_sample = next(iter(valid_dataloader))
     print(f"Input Tensor = {dummy_sample[0].shape}")
     print(f"Label Tensor = {dummy_sample[1].shape}")
-
-    print("\n########## BUILDING MODEL ##########")
-    #Define length of output vector
-    num_cls = 1 if 'multilabel' not in cfg["data"]["target_format"] else len(cfg["data"]["classes"])
-    model = timm.create_model(
-            cfg["model"]["arch"], 
-            pretrained=False, 
-            in_chans=1, 
-            num_classes = num_cls,
-            ).to(args.device)
-    
-    #Print model summary
-    print(model)
-
-    #Load weights 
-    try:
-        model.load_state_dict(torch.load(args.weights))
-        print(f"Loaded weights from '{args.weights}'")
-
-        #Print model summary
-        print(model)
-
-    except:
-        raise Exception(f"Failed to load weights from '{args.weights}'")
-
-    # Confuse vision (add Gaussian noise to convolutional kernels)
-    print("\n########## CONFUSING VISION ##########")
-    model = confuse_vision(model, 
-                noise_scale = cfg["unlearning"]["noise_scale"], 
-                trans = cfg["unlearning"]["transpose"], 
-                reinit_last = cfg["unlearning"]["reinit_last"],
-                train_dense = cfg["unlearning"]["train_dense"])
-    print(model)
 
     #Define optimizer
     optimizer= torch.optim.Adam(
