@@ -3,12 +3,35 @@ import yaml
 import numpy as np
 from functools import partial
 import utils.metrics
+import glob
 
 ### GENERAL IO
 def existsfolder(path):
     if not os.path.exists(path):
         os.makedirs(path)
 
+def get_valid_files(inputs):
+    __EXT__ = (".jpg", ".png", ".bmp")
+    images = []
+    gts = []
+    for input in inputs:
+        if os.path.isfile(input) and input.endswith(__EXT__):
+            images.append(input)
+            gts.append(None)
+        # elif os.path.isfile(input) and input.endswith('.csv'):
+        #     split = pd.read_csv(input, sep=";")
+        #     split["label"] = split.apply(lambda x: [1 if int(x[g]) > 0 else 0 for g in args.classes], axis=1)
+        #     split["file_name"] = split.apply(lambda x: os.path.join(args.dataset_root, x["file_name"]), axis=1)
+        #     images.extend(split["file_name"].to_list())
+        #     gts.extend(split["label"].to_list())
+        elif os.path.isdir(input):
+            for ext in __EXT__:
+                valid_files_in_dir=glob.glob(input + "/*" + ext)
+                images.extend(valid_files_in_dir)
+                gts.extend([None] * len(valid_files_in_dir))
+        else:
+            print(f"Invalid input: '{input}'. Skipping")
+            
 ### CONFIG FILE PARSING
 def get_config(path, verbose=False):
     with open (path, 'r') as f:
