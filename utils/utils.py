@@ -60,7 +60,7 @@ class Logger:
         self.preds = []
         self.labels= []
 
-    def log(self, xargs={}, clear_buffer=True, prepend='', extra=[]):
+    def log(self, xargs={}, clear_buffer=True, prepend='', extras=None):
         preds = np.concatenate(self.preds, axis=0)
         labels= np.concatenate(self.labels, axis=0)
 
@@ -76,8 +76,9 @@ class Logger:
             to_log[f'{prepend}_{name}'] = fn(preds, labels)
 
         #Optional Extra metrics functions (For plots etc.)
-        for name, fn in extra:
-            to_log[f'{prepend}_{name}'] = fn(preds, labels)
+        if extras is not None:
+            for name, fn in extras.items():
+                to_log[f'{prepend}_{name}'] = fn(preds, labels)
 
         #upload to wandb
         if self.wandb is not None:
