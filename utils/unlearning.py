@@ -6,7 +6,7 @@ import sys
 from tqdm import tqdm
 
 
-def confuse_vision(model, noise_scale, trans = True, reinit_last = True, train_dense = True):
+def confuse_vision(model, noise_scale = 0.1, trans = True, reinit_last = True, train_dense = True):
     """ Add Gaussian noise to the conv2d layers of the model.
         - model: a tf model with loaded weights
         - noise_scale: scale of the std of the Gaussian noise
@@ -25,26 +25,25 @@ def confuse_vision(model, noise_scale, trans = True, reinit_last = True, train_d
         #Confusing kernels
         for j in range(kernel.shape[0]):
             for k in range(kernel.shape[1]):
-                print(f"Layer {i}: Kernel ({j},{k})")
-                print(kernel[j,k,:,:])
-                print(kernel[j,k,:,:].shape)
+                # print(f"Layer {i}: Kernel ({j},{k})")
+                # print(kernel[j,k,:,:])
+                # print(kernel[j,k,:,:].shape)
                 #Traspose kernel
                 if trans:
-                    kernel[j,k,:,:] = torch.transpose(kernel[j,k,:,:], 0, 1)
-                print(kernel[j,k,:,:])
-                print(kernel[j,k,:,:].shape)
+                    kernel[j,k,:,:] = torch.transpose(torch.clone(kernel[j,k,:,:]), 0, 1)
+                # print(kernel[j,k,:,:])
+                # print(kernel[j,k,:,:].shape)
                 #Compute noise scale proportional to the std of the kernel
                 noise_std = torch.std(kernel[j,k,:,:]).item() * noise_scale
-                print(noise_std)
+                # print(noise_std)
                 if not noise_std > 0:
-                    print("No noise added")
+                    # print("No noise added")
                     noise_std = 0.01
-                print("Adding noise")
-                kernel[j,k,:,:] += torch.normal(mean=0, std=noise_std, size=kernel[j,k,:,:].shape)
-                print(kernel[j,k,:,:])
-                print(kernel[j,k,:,:].shape)
-                if j == 0 and k == 0:
-                    break
+                # print("Adding noise")
+                kernel[j,k,:,:] += torch.normal(mean=0, std=noise_std, size=kernel[j,k,:,:].shape, device=kernel.device)
+                # print(kernel[j,k,:,:])
+                # print(kernel[j,k,:,:].shape)
+            
         
         #Confusing bias
         if conv.bias:
