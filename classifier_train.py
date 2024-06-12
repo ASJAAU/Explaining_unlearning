@@ -4,10 +4,8 @@ import tqdm
 import yaml
 import numpy as np
 
-from models.resnet import *
 from data.dataloader import REPAIHarborfrontDataset
-from utils.metrics import Logger, get_metrics
-from utils.utils import existsfolder, get_config
+from utils.utils import existsfolder, get_config, Logger, get_metrics
 
 import torch
 from torch.utils.data import DataLoader
@@ -117,10 +115,7 @@ if __name__ == "__main__":
         )
     
     #Define loss
-    loss_fn = torch.nn.CrossEntropyLoss()#torch.nn.BCEWithLogitsLoss()
-
-    #Retrieve metrics for logging 
-    metrics = get_metrics(cfg["data"]["target_format"])
+    loss_fn = torch.nn.CrossEntropyLoss()
 
     #Create output folder
     out_folder = f'{args.output}/{cfg["model"]["task"]}-{cfg["model"]["arch"]}-{datetime.now().strftime("%Y_%m_%d_%H-%M")}'
@@ -129,9 +124,13 @@ if __name__ == "__main__":
     existsfolder(out_folder+"/weights")
 
     #Save copy of config
+    cfg["folder_name"] = out_folder
     with open(out_folder + "/config.yaml", 'w') as f:
         yaml.dump(cfg, f, default_flow_style=False)
 
+    #Retrieve metrics for logging 
+    metrics = get_metrics(cfg["data"]["target_format"], cfg["data"]["classes"])
+    
     # Logging
     if 'multilabel' not in cfg["data"]["target_format"]:
         logger = Logger(cfg, out_folder=out_folder)
@@ -139,6 +138,17 @@ if __name__ == "__main__":
         logger = Logger(cfg, out_folder=out_folder, classwise_metrics=cfg["data"]["classes"])
     else: 
         raise Exception(f"Logging for {cfg['data']['target_format']} is improperly retrieved")
+
+    #Plotting for Validation
+    if cfg["wandb"]["plotting"]:
+        extra_plots = {}
+        from utils.wandb_plots import conf_matrix, conf_matrix_plot
+        from functools import partial
+        #extra_plots[f"conf"] = conf_matrix
+        extra_plots[f"conf_plot"] = conf_matrix_plot
+        for i,c in enumerate(cfg["data"]["classes"]):
+            #extra_plots[f"conf_{c}"] = partial(conf_matrix, idx=i)
+            extra_plots[f"conf_plot_{c}"] = partial(conf_matrix_plot, idx=i)
 
     print("\n########## TRAINING MODEL ##########")
     for epoch in tqdm.tqdm(range(cfg["training"]["epochs"]), unit="Epoch", desc="Epochs"):
@@ -169,11 +179,11 @@ if __name__ == "__main__":
             #Check for loggin frequency
             if i % cfg["wandb"]["log_freq"] == 0:
                 logs = logger.log(
-                    xargs={
-                        "loss": running_loss
-                    },
                     clear_buffer=True,
-                    prepend='train'
+                    prepend='train',
+                    xargs={
+                        "loss": running_loss/cfg["wandb"]["log_freq"]
+                    },
                 )
                 running_loss = 0
                 #print(logs)
@@ -194,18 +204,19 @@ if __name__ == "__main__":
 
             #Calculate loss
             loss = loss_fn(outputs, labels)
-            running_loss += loss.item() / len(valid_dataloader)
+            running_loss += loss.item()
 
             #Log metrics
             logger.add_prediction(outputs.detach().to("cpu").numpy(), labels.detach().to("cpu").numpy())
 
         #Check for loggin frequency
         logs = logger.log(
+            clear_buffer=True,
+            prepend='valid',
+            extras=extra_plots,
             xargs={
                 "loss": running_loss / len(valid_dataloader)
             },
-            clear_buffer=True,
-            prepend='valid'
         )
 
         #Save Model
