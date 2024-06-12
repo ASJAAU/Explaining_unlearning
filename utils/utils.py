@@ -126,6 +126,7 @@ def wandb_logger(cfg, output_path="./wandb"):
             config=cfg,
             tags=cfg["wandb"]["tags"],
             dir=output_path,
+            entity="repai"
         )
         return wandb_logger
     else:
