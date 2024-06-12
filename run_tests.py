@@ -5,6 +5,7 @@ import unittest
 
 #Dataset testing
 from data.dataloader import REPAIHarborfrontDataset
+from torch.utils.data import DataLoader
 
 #Metrics testing
 import utils.metrics as metrics
@@ -21,7 +22,20 @@ class Test_Dataloader(unittest.TestCase):
         print("------ Dataset overview ------")
         print(dataset.__repr__())
         return True
-
+    
+    def test_dataloader(self):
+        dataset = REPAIHarborfrontDataset("data/Test_data.csv", "/Data/Harborfront_raw/")
+        dataloader = DataLoader(
+        dataset, 
+        batch_size=12, 
+        shuffle=True
+        )
+        #print example batch (sanity check)
+        dummy_sample = next(iter(dataloader))
+        print(f"Input Tensor = {dummy_sample[0].shape}")
+        print(f"Label Tensor = {dummy_sample[1].shape}")
+        return True
+    
 class Test_Metrics(unittest.TestCase):
     def test_metrics(self):
         #Create dummy testing samples
