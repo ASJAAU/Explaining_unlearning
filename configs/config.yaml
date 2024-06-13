@@ -7,11 +7,17 @@ training:
   lr_decay: 0.1
   batch_size: 48
   validation_steps: 10000
+  loss: "huber"
+
+evaluation:
+  metrics:
+  - "rmse"
+  - "mae"
 
 model:
   arch: "resnet50d" 
   task: "counter"
-  exp: "Baseline02"
+  exp: "Baseline01 - Huber Loss"
 
 data:
   classes:
@@ -25,11 +31,13 @@ data:
   test: "/Data/Harborfront_raw//repai/Test_data.csv"
   target_format: 'multilabel_counts'
 
+
 wandb:
   enabled: True
   plotting: True
   resume: False
   log_freq: 500 #Number of batches
-  project_name: "REPAI_XAIE_WORKSHOP"
+  project_name: "MU+XAI Workshop"
+  entity: "repai"
   tags:
     - Baseline
