@@ -6,7 +6,7 @@ import sys
 from tqdm import tqdm
 
 
-def confuse_vision(model, noise_scale = 0.1, trans = True, reinit_last = True, train_dense = True):
+def confuse_vision(model, noise_scale = 0.1, trans = True, reinit_last = True, train_dense = True, train_kernel = True, train_bias = True, train_last = True):
     """ Add Gaussian noise to the conv2d layers of the model.
         - model: a tf model with loaded weights
         - noise_scale: scale of the std of the Gaussian noise
@@ -19,10 +19,10 @@ def confuse_vision(model, noise_scale = 0.1, trans = True, reinit_last = True, t
 
     #Add noise to each kernel
     for i, conv in tqdm(enumerate(conv_layers), total=len(conv_layers)):
-        print(conv)
-        kernel = torch.clone(conv.weight)
+        print(f"Layer {i}: {conv}")
 
         #Confusing kernels
+        kernel = torch.clone(conv.weight)
         for j in range(kernel.shape[0]):
             for k in range(kernel.shape[1]):
                 # print(f"Layer {i}: Kernel ({j},{k})")
@@ -39,28 +39,80 @@ def confuse_vision(model, noise_scale = 0.1, trans = True, reinit_last = True, t
                 if not noise_std > 0:
                     # print("No noise added")
                     noise_std = 0.01
-                # print("Adding noise")
+                #Add noise
                 kernel[j,k,:,:] += torch.normal(mean=0, std=noise_std, size=kernel[j,k,:,:].shape, device=kernel.device)
                 # print(kernel[j,k,:,:])
                 # print(kernel[j,k,:,:].shape)
-            
-        
+        #Update kernel
+        conv.weight = nn.Parameter(kernel, requires_grad=train_kernel, device=kernel.device)
+
         #Confusing bias
         if conv.bias:
+            print("There is bias")
             bias = torch.clone(conv.bias)
             print(f"Layer {i}: {bias.shape}")
+
+            #Compute noise scale proportional to the std of the bias
+            noise_std = torch.std(bias).item() * noise_scale
+            if not noise_std > 0:
+                noise_std = 0.01
+            #Add noise
+            bias += torch.normal(mean=0, std=noise_std, size=bias.shape, device=bias.device)
+            #Update bias
+            conv.bias = nn.Parameter(bias, requires_grad=train_bias, device=bias.device)
         else: 
-            bias = nn.Parameter(torch.zeros(conv.out_channels))
-            conv.bias = bias
+            print("No bias")
+            # bias = nn.Parameter(torch.zeros(conv.out_channels))
+            # conv.bias = bias
 
-
-        print(f"Layer {i}: {kernel.shape}")
-        conv.weight = nn.Parameter(torch.zeros(kernel.size()))
-        print(conv.weight)
+        #Break for debugging
         if i == 1:
             break
-
     
+    #Set non conv2d layers to trainable/not trainable
+    for i, m in enumerate(model.modules()):
+        if not isinstance(m, nn.Conv2d):
+            m.requires_grad = train_dense
+        if i == len(model.modules()) - 1:
+            #Reinitialize last layer
+            if reinit_last:
+                if isinstance(m, nn.Linear):
+                    print(f"Reinitializing last layer: {m}")
+                    nn.init.xavier_uniform_(m.weight)
+                    nn.init.zeros_(m.bias)
+                    m.requires_grad = train_last
+                else: 
+                    raise ValueError("Last layer is not linear")
+            #Otherwise add Gaussian noise
+            else:
+                if isinstance(m, nn.Linear):
+                    print(f"Adding noise to last layer: {m}")
+                    weight = torch.clone(m.weight)
+                    #Compute noise scale proportional to the std of the weight
+                    noise_std = torch.std(weight).item() * noise_scale
+                    if not noise_std > 0:
+                        noise_std = 0.01
+                    #Add weight noise
+                    weight += torch.normal(mean=0, std=noise_std, size=weight.shape, device=weight.device)
+                    #Update weight
+                    m.weight = nn.Parameter(weight, requires_grad=train_last, device=weight.device)
+
+                    if m.bias:
+                        print("There is bias in last layer")
+                        bias = torch.clone(m.bias)
+                        #Compute noise scale proportional to the std of the bias
+                        noise_std = torch.std(bias).item() * noise_scale
+                        if not noise_std > 0:
+                            noise_std = 0.01
+                        #Add bias noise
+                        bias += torch.normal(mean=0, std=noise_std, size=bias.shape, device=bias.device)
+                        #Update weight and bias
+                        m.bias = nn.Parameter(bias, requires_grad=train_last, device=bias.device)
+                else: 
+                    raise ValueError("Last layer is not linear")
+            
+
+    #Check if noise was added correctly debug
     # conv_layers = [m for m in model.modules() if isinstance(m, nn.Conv2d)]
     # for i, conv in tqdm(enumerate(conv_layers), total=len(conv_layers)):
     #     print(conv.weight)
