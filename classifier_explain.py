@@ -18,7 +18,7 @@ if __name__ == "__main__":
     parser.add_argument("input", type=str, nargs= '+', help="Path to files/folders to run inference on")
     #Optional
     parser.add_argument("--device", default="cuda:0", help="Which device to prioritize")
-    parser.add_argument("--output", default="./outputs/", help="Where to save the model weights")
+    parser.add_argument("--output", default="./explained/", help="Where to save image explinations")
     parser.add_argument("--verbose", default=False, action='store_true', help="Enable verbose status printing")
     args = parser.parse_args()        
 
@@ -66,7 +66,7 @@ if __name__ == "__main__":
         orig_pred = model(input)
 
         #Explain
-        salient_map = sidu(model, 'TBD', input,args.device)
+        salient_map = sidu(model, model.layer4[2].act3, input, args.device)
 
         #visualize
         img = visualize_prediction(img, orig_pred, None, [salient_map])
