@@ -5,7 +5,7 @@ import yaml
 import numpy as np
 
 from data.dataloader import REPAIHarborfrontDataset
-from utils.utils import existsfolder, get_config, Logger, get_metrics
+from utils.utils import existsfolder, get_config, Logger
 
 import torch
 from torch.utils.data import DataLoader
@@ -62,6 +62,7 @@ if __name__ == "__main__":
         batch_size=cfg["training"]["batch_size"], 
         shuffle=True
         )
+    
     #print example batch (sanity check)
     dummy_sample = next(iter(train_dataloader))
     print(f"Input Tensor = {dummy_sample[0].shape}")
@@ -85,6 +86,7 @@ if __name__ == "__main__":
         valid_dataset,
         batch_size=cfg["training"]["batch_size"]
         )
+    
     #print example batch (sanity check)
     dummy_sample = next(iter(valid_dataloader))
     print(f"Input Tensor = {dummy_sample[0].shape}")
@@ -115,8 +117,14 @@ if __name__ == "__main__":
         )
     
     #Define loss
-    #loss_fn = torch.nn.CrossEntropyLoss()
-    loss_fn = torch.nn.MSELoss()
+    if cfg["training"]["loss"] == "huber":
+        loss_fn = torch.nn.HuberLoss(delta=4.0)
+    elif cfg["training"]["loss"] == "l1":
+        loss_fn = torch.nn.L1Loss()
+    elif cfg["training"]["loss"] == "mse":
+        loss_fn = torch.nn.MSELoss()
+    else:
+        raise Exception(f"UNKNOWN LOSS: '{cfg['training']['loss']}' must be one of the following: 'l1', 'mse', 'huber' ")
 
     #Create output folder
     out_folder = f'{args.output}/{cfg["model"]["task"]}-{cfg["model"]["arch"]}-{datetime.now().strftime("%Y_%m_%d_%H-%M")}'
@@ -128,15 +136,20 @@ if __name__ == "__main__":
     cfg["folder_name"] = out_folder
     with open(out_folder + "/config.yaml", 'w') as f:
         yaml.dump(cfg, f, default_flow_style=False)
-
-    #Retrieve metrics for logging 
-    metrics = get_metrics(cfg["data"]["target_format"], cfg["data"]["classes"])
     
     # Logging
-    if 'multilabel' not in cfg["data"]["target_format"]:
-        logger = Logger(cfg, out_folder=out_folder)
-    elif 'multilabel' in cfg["data"]["target_format"]:
-        logger = Logger(cfg, out_folder=out_folder, classwise_metrics=cfg["data"]["classes"])
+    if 'counts' in cfg["data"]["target_format"]:
+        if 'multilabel' in cfg["data"]["target_format"]:
+            logger = Logger(cfg, out_folder=out_folder, metrics=cfg["evaluation"]["metrics"], classwise_metrics=cfg["data"]["classes"])
+        else:
+            logger = Logger(cfg, out_folder=out_folder, metrics=cfg["evaluation"]["metrics"])
+    elif 'binary' in cfg["data"]["target_format"]:
+        if 'multilabel' in cfg["data"]["target_format"]:
+            raise NotImplemented
+            #logger = Logger(cfg, out_folder=None, metrics=cfg["evaluation"]["metrics"], classwise_metrics=cfg["data"]["classes"])
+        else:
+            raise NotImplemented
+            #logger = Logger(cfg, out_folder=None, metrics=cfg["evaluation"]["metrics"])
     else: 
         raise Exception(f"Logging for {cfg['data']['target_format']} is improperly retrieved")
 
@@ -178,12 +191,12 @@ if __name__ == "__main__":
             logger.add_prediction(outputs.detach().to("cpu").numpy(), labels.detach().to("cpu").numpy())
 
             #Check for loggin frequency
-            if i % cfg["wandb"]["log_freq"] == 0:
+            if i % cfg["training"]["log_freq"] == 0:
                 logs = logger.log(
                     clear_buffer=True,
                     prepend='train',
                     xargs={
-                        "loss": running_loss/cfg["wandb"]["log_freq"]
+                        "loss": running_loss/cfg["training"]["log_freq"]
                     },
                 )
                 running_loss = 0

@@ -6,7 +6,7 @@ training:
   lr_steps: 5000
   lr_decay: 0.1
   batch_size: 48
-  validation_steps: 10000
+  log_freq: 500 #Number of batches
   loss: "huber"
 
 evaluation:
@@ -17,7 +17,7 @@ evaluation:
 model:
   arch: "resnet50d" 
   task: "counter"
-  exp: "Baseline01 - Huber Loss"
+  exp: "Baseline01"
 
 data:
   classes:
@@ -36,7 +36,6 @@ wandb:
   enabled: True
   plotting: True
   resume: False
-  log_freq: 500 #Number of batches
   project_name: "MU+XAI Workshop"
   entity: "repai"
   tags:
