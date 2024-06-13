@@ -19,11 +19,11 @@ def confuse_vision(model, noise_scale = 0.1, trans = True, reinit_last = True, t
 
     #Add noise to each kernel
     for i, conv in tqdm(enumerate(conv_layers), total=len(conv_layers)):
-        print(f"Layer {i}: {conv}")
+        print(f"Convolution layer {i}: {conv}")
 
         #Confusing kernels
         kernel = torch.clone(conv.weight)
-        for j in range(kernel.shape[0]):
+        for j in tqdm(range(kernel.shape[0]), total=kernel.shape[0]):
             for k in range(kernel.shape[1]):
                 # print(f"Layer {i}: Kernel ({j},{k})")
                 # print(kernel[j,k,:,:])
@@ -48,9 +48,9 @@ def confuse_vision(model, noise_scale = 0.1, trans = True, reinit_last = True, t
 
         #Confusing bias
         if conv.bias:
-            print("There is bias")
+            # print("There is bias")
             bias = torch.clone(conv.bias)
-            print(f"Layer {i}: {bias.shape}")
+            # print(f"Layer {i}: {bias.shape}")
 
             #Compute noise scale proportional to the std of the bias
             noise_std = torch.std(bias).item() * noise_scale
@@ -60,14 +60,14 @@ def confuse_vision(model, noise_scale = 0.1, trans = True, reinit_last = True, t
             bias += torch.normal(mean=0, std=noise_std, size=bias.shape, device=bias.device)
             #Update bias
             conv.bias = nn.Parameter(bias, requires_grad=train_bias)
-        else: 
-            print("No bias")
+        # else: 
+            # print("No bias")
             # bias = nn.Parameter(torch.zeros(conv.out_channels))
             # conv.bias = bias
 
         #Break for debugging
-        if i == 1:
-            break
+        # if i == 1:
+        #     break
 
     module_list = [module for module in model.modules() if not isinstance(module, nn.Sequential)]
     
