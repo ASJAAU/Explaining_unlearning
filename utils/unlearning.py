@@ -68,12 +68,14 @@ def confuse_vision(model, noise_scale = 0.1, trans = True, reinit_last = True, t
         #Break for debugging
         if i == 1:
             break
+
+    module_list = [module for module in model.modules() if not isinstance(module, nn.Sequential)]
     
     #Set non conv2d layers to trainable/not trainable
-    for i, m in enumerate(model.modules()):
+    for i, m in enumerate(module_list):
         if not isinstance(m, nn.Conv2d):
             m.requires_grad = train_dense
-        if i == len(model.modules()) - 1:
+        if i == len(module_list) - 1:
             #Reinitialize last layer
             if reinit_last:
                 if isinstance(m, nn.Linear):
@@ -82,6 +84,7 @@ def confuse_vision(model, noise_scale = 0.1, trans = True, reinit_last = True, t
                     nn.init.zeros_(m.bias)
                     m.requires_grad = train_last
                 else: 
+                    print(f"Last layer is not linear: {m}")
                     raise ValueError("Last layer is not linear")
             #Otherwise add Gaussian noise
             else:
@@ -109,6 +112,7 @@ def confuse_vision(model, noise_scale = 0.1, trans = True, reinit_last = True, t
                         #Update weight and bias
                         m.bias = nn.Parameter(bias, requires_grad=train_last, device=bias.device)
                 else: 
+                    print(f"Last layer is not linear: {m}")
                     raise ValueError("Last layer is not linear")
             
 
