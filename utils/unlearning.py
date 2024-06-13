@@ -44,7 +44,7 @@ def confuse_vision(model, noise_scale = 0.1, trans = True, reinit_last = True, t
                 # print(kernel[j,k,:,:])
                 # print(kernel[j,k,:,:].shape)
         #Update kernel
-        conv.weight = nn.Parameter(kernel, requires_grad=train_kernel, device=kernel.device)
+        conv.weight = nn.Parameter(kernel, requires_grad=train_kernel)
 
         #Confusing bias
         if conv.bias:
@@ -59,7 +59,7 @@ def confuse_vision(model, noise_scale = 0.1, trans = True, reinit_last = True, t
             #Add noise
             bias += torch.normal(mean=0, std=noise_std, size=bias.shape, device=bias.device)
             #Update bias
-            conv.bias = nn.Parameter(bias, requires_grad=train_bias, device=bias.device)
+            conv.bias = nn.Parameter(bias, requires_grad=train_bias)
         else: 
             print("No bias")
             # bias = nn.Parameter(torch.zeros(conv.out_channels))
@@ -95,7 +95,7 @@ def confuse_vision(model, noise_scale = 0.1, trans = True, reinit_last = True, t
                     #Add weight noise
                     weight += torch.normal(mean=0, std=noise_std, size=weight.shape, device=weight.device)
                     #Update weight
-                    m.weight = nn.Parameter(weight, requires_grad=train_last, device=weight.device)
+                    m.weight = nn.Parameter(weight, requires_grad=train_last)
 
                     if m.bias:
                         print("There is bias in last layer")
@@ -107,7 +107,7 @@ def confuse_vision(model, noise_scale = 0.1, trans = True, reinit_last = True, t
                         #Add bias noise
                         bias += torch.normal(mean=0, std=noise_std, size=bias.shape, device=bias.device)
                         #Update weight and bias
-                        m.bias = nn.Parameter(bias, requires_grad=train_last, device=bias.device)
+                        m.bias = nn.Parameter(bias, requires_grad=train_last)
                 else: 
                     raise ValueError("Last layer is not linear")
             
