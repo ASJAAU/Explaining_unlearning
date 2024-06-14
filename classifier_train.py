@@ -29,18 +29,31 @@ if __name__ == "__main__":
     cfg = get_config(args.config)
 
     #Setup preprocessing steps
-    train_transforms = torch_transforms.Compose([
-        torch_transforms.RandomHorizontalFlip(p=0.5),
+    base_transforms = [
         torch_transforms.ToDtype(torch.float32, scale=True),
         torch_transforms.ToTensor(),
-    ])
-    valid_transforms = torch_transforms.Compose([
-        torch_transforms.ToDtype(torch.float32, scale=True),
-        torch_transforms.ToTensor(),
-    ])
-    label_transforms  = torch_transforms.Compose([
-        torch_transforms.ToTensor(),
-    ])
+    ]
+
+    #Training transformations
+    if cfg["data"]["augment"]:
+        train_transforms = torch_transforms.Compose(base_transforms.extend([
+            torch_transforms.RandomHorizontalFlip(p=0.5),
+            torch_transforms.RandomRotation(5), #5 degrees +-
+            torch_transforms.ColorJitter(
+                brightness  = 0.15,
+                contrast    = 0.2,
+                saturation  = 0.0,
+                hue         = 0.0,),
+            torch_transforms.RandomInvert(p=0.2),
+        ]))
+    else:
+        train_transforms = torch_transforms.Compose(base_transforms)
+
+    #Validation transformations
+    valid_transforms = torch_transforms.Compose(base_transforms)
+
+    #Label transformations
+    label_transforms  = torch_transforms.Compose([torch_transforms.ToTensor()])
 
     print("\n########## PREPARING DATA ##########")
     print("\n### CREATING TRAINING DATASET")
