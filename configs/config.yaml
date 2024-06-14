@@ -25,6 +25,7 @@ data:
   - "bicycle"
   - "motorcycle"
   - "vehicle"
+  augment: False
   root: "/Data/Harborfront_raw/"
   train: "/Data/Harborfront_raw/repai/Train_data.csv"
   valid: "/Data/Harborfront_raw/repai/Valid_data.csv"
