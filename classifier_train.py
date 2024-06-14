@@ -118,7 +118,7 @@ if __name__ == "__main__":
     
     #Define loss
     if cfg["training"]["loss"] == "huber":
-        loss_fn = torch.nn.HuberLoss(delta=4.0)
+        loss_fn = torch.nn.HuberLoss(delta=2.0)
     elif cfg["training"]["loss"] == "l1":
         loss_fn = torch.nn.L1Loss()
     elif cfg["training"]["loss"] == "mse":
@@ -160,9 +160,10 @@ if __name__ == "__main__":
         from functools import partial
         #extra_plots[f"conf"] = conf_matrix
         extra_plots[f"conf_plot"] = conf_matrix_plot
-        for i,c in enumerate(cfg["data"]["classes"]):
-            #extra_plots[f"conf_{c}"] = partial(conf_matrix, idx=i)
-            extra_plots[f"conf_plot_{c}"] = partial(conf_matrix_plot, idx=i)
+        if 'multilabel' in cfg["data"]["target_format"]:
+            for i,c in enumerate(cfg["data"]["classes"]):
+                #extra_plots[f"conf_{c}"] = partial(conf_matrix, idx=i)
+                extra_plots[f"conf_plot_{c}"] = partial(conf_matrix_plot, idx=i)
 
     print("\n########## TRAINING MODEL ##########")
     for epoch in tqdm.tqdm(range(cfg["training"]["epochs"]), unit="Epoch", desc="Epochs"):

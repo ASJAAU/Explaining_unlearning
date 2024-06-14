@@ -29,13 +29,12 @@ data:
   train: "/Data/Harborfront_raw/repai/Train_data.csv"
   valid: "/Data/Harborfront_raw/repai/Valid_data.csv"
   test: "/Data/Harborfront_raw//repai/Test_data.csv"
-  target_format: 'multilabel_counts'
-
+  target_format: 'counts'
 
 wandb:
   enabled: True
   plotting: True
-  resume: False
+  resume: null
   project_name: "MU+XAI Workshop"
   entity: "repai"
   tags:
