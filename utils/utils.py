@@ -60,9 +60,13 @@ def update_config(base_config, updates):
 
 ### LOGGING
 class Logger:
-    def __init__(self, cfg, out_folder, classwise_metrics=[]) -> None:
+    def __init__(self, cfg, out_folder, metrics=[], classwise_metrics=[]) -> None:
         #Save local copies of relevant variables
-        self.metrics = get_metrics(cfg["data"]["target_format"], classwise_metrics)
+        self.metrics = {}
+        #Retrieve metrics
+        for metric in metrics:
+            self.metrics.update(get_metric(metric, classwise_metrics))
+        #Establish output files and classes
         self.output_path = out_folder
         self.classes = cfg["data"]["classes"]
 
@@ -121,32 +125,54 @@ class Logger:
 def wandb_logger(cfg, output_path="./wandb"):
     import wandb
     if cfg["wandb"]["enabled"]:
-        wandb_logger = wandb.init(
-            project=cfg["wandb"]["project_name"],
-            config=cfg,
-            tags=cfg["wandb"]["tags"],
-            dir=output_path,
-            entity="repai"
-        )
+        if cfg["wandb"]["resume"] is not None:
+            wandb_logger = wandb.init(
+                project=cfg["wandb"]["project_name"],
+                config=cfg,
+                tags=cfg["wandb"]["tags"],
+                resume="must",
+                id=cfg["wandb"]["resume"],
+                dir=output_path,
+                entity=cfg["wandb"]["entity"],
+            )
+        else:
+            wandb_logger = wandb.init(
+                project=cfg["wandb"]["project_name"],
+                config=cfg,
+                tags=cfg["wandb"]["tags"],
+                dir=output_path,
+                entity=cfg["wandb"]["entity"],
+            )
         return wandb_logger
     else:
         return None
     
 ### HELPER FUNCTIONS FOR LOGGING
-def get_metrics(target_format, classwise=[]):
-    if 'count' in target_format:
-        metrics = {}
+def get_metric(metric, classwise=[]):
+    metrics = {}
+    #MAE
+    if metric == "mae":
         metrics["MAE"] = utils.metrics.mae
-        metrics["RMSE"] = utils.metrics.rmse
-        
-        #Classwise metrics
         for i,c in enumerate(classwise):
             metrics[f"MAE_{c}"] = partial(utils.metrics.mae, idx=i)
+    #RMSE
+    elif metric == "rmse":
+        metrics["RMSE"] = utils.metrics.rmse
+        for i,c in enumerate(classwise):
             metrics[f"RMSE_{c}"] = partial(utils.metrics.rmse, idx=i)
-        return metrics
+    #MAPE
+    elif metric == "mape":
+        metrics["MAPE"] = utils.metrics.mape
+        for i,c in enumerate(classwise):
+            metrics[f"MAPE_{c}"] = partial(utils.metrics.mape, idx=i)
+    #MASE    
+    elif metric == "maSe":
+        metrics["MASE"] = utils.metrics.mase
+        for i,c in enumerate(classwise):
+            metrics[f"MASE_{c}"] = partial(utils.metrics.mase, idx=i)
     else:
-        print("DONT RECOGNIZE THE TARGET FORMAT, OMITTING EVALUATION METRICS")
-        return {}
+        print(f"UNRECOGNIZED METRIC: {metric}, IGNORED")
+    return metrics
     
 def get_wandb_plots(names):
     import utils.wandb_plots as wandplots

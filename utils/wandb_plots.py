@@ -40,14 +40,28 @@ def conf_matrix_plot(preds, labels, idx=None):
         for i in range(conf_matrices.shape[0]):
             for j in range(conf_matrices.shape[1]):
                 conf_matrices[i,j] = conf_matrices[i,j]/(np.sum(conf_matrices[i,:]) + np.sum(conf_matrices[:,j])-conf_matrices[i,j]) if (np.sum(conf_matrices[i,:]) + np.sum(conf_matrices[:,j])-conf_matrices[i,j]) > 0 else conf_matrices[i,j]
-        return wandb.Image(plt.imshow(conf_matrices.T, cmap="jet", origin="lower"))
+        fig = plt.figure()
+        ax = fig.add_subplot(1,1,1)
+        im = ax.imshow(conf_matrices.T, cmap="jet", origin="lower")
+        ax.set_xlabel("Predictions")
+        ax.set_ylabel("Ground Truth")
+        fig.colorbar(im, orientation='vertical')
+        plt.close()
+        return wandb.Image(im)
     else:
         conf_matrices, xedges, yedges = np.histogram2d(x=preds[:,idx],y=labels[:,idx],bins=np.linspace(0,max_vals,max_vals).astype(np.uint8))
         #Normalize with respect to total of a specific class
         for i in range(conf_matrices.shape[0]):
             for j in range(conf_matrices.shape[1]):
                 conf_matrices[i,j] = conf_matrices[i,j]/(np.sum(conf_matrices[i,:]) + np.sum(conf_matrices[:,j])-conf_matrices[i,j]) if (np.sum(conf_matrices[i,:]) + np.sum(conf_matrices[:,j])-conf_matrices[i,j]) > 0 else conf_matrices[i,j]
-        return wandb.Image(plt.imshow(conf_matrices.T, cmap="jet", origin="lower"))
+        fig = plt.figure()
+        ax = fig.add_subplot(1,1,1)
+        im = ax.imshow(conf_matrices.T, cmap="jet", origin="lower")
+        ax.set_xlabel("Predictions")
+        ax.set_ylabel("Ground Truth")
+        fig.colorbar(im, orientation='vertical')
+        plt.close()
+        return wandb.Image(im)
 
 if __name__ == '__main__':
     gt = np.random.rand(10000,1)*16
