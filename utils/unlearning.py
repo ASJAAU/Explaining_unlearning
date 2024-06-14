@@ -66,8 +66,8 @@ def confuse_vision(model, noise_scale = 0.1, trans = True, reinit_last = True, t
             # conv.bias = bias
 
         #Break for debugging
-        # if i == 1:
-        #     break
+        if i == 1:
+            break
 
     module_list = [module for module in model.modules() if not isinstance(module, nn.Sequential)]
     
@@ -124,5 +124,19 @@ def confuse_vision(model, noise_scale = 0.1, trans = True, reinit_last = True, t
     #     if i == 1: 
     #         break
 
-def forget_loss():
-    pass
+
+
+class ForgetLoss(nn.Module):
+    def __init__(self, class_to_forget, target_format, loss_fn):
+        super(ForgetLoss, self).__init__()
+        self.class_to_forget = class_to_forget
+        self.target_format = target_format
+        self.loss_fn = loss_fn        
+
+    def forward(self, inputs, targets):
+        if "counts" in self.target_format:
+            if "multilabel" in self.target_format:
+                pass
+
+        loss = self.loss_fn(inputs, targets)
+        return loss.mean()

@@ -7,3 +7,6 @@ unlearning:
   transpose: True
   reinit_last: True  
   train_dense: True
+  train_kernel: True
+  train_bias: True
+  train_last: True
