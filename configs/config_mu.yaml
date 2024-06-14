@@ -1,5 +1,21 @@
 base: "configs/config.yaml"
 
+training:
+  epochs: 5
+  lr: 0.1
+  lr_steps: 5000
+  lr_decay: 0.1
+  batch_size: 2
+  log_freq: 500 #Number of batches
+  loss: "huber"
+
+model:
+  exp: "MU01"
+
+data:
+  target_format: "multilabel_counts"
+  augment: False
+
 unlearning:
   noise_scale: 0.1
   noise_scale_2: 0.01
@@ -10,3 +26,6 @@ unlearning:
   train_kernel: True
   train_bias: True
   train_last: True
+
+wandb:
+  enabled: False

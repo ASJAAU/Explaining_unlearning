@@ -124,6 +124,8 @@ def confuse_vision(model, noise_scale = 0.1, trans = True, reinit_last = True, t
     #     if i == 1: 
     #         break
 
+    return model
+
 
 
 class ForgetLoss(nn.Module):
