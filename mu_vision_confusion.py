@@ -5,9 +5,9 @@ import yaml
 import numpy as np
 
 from data.dataloader import REPAIHarborfrontDataset
-from utils.utils import Logger, get_metrics
+from utils.utils import Logger, get_metric
 from utils.utils import existsfolder, get_config
-from utils.unlearning import confuse_vision, forget_loss
+from utils.unlearning import confuse_vision, ForgetLoss
 
 import torch
 from torch.utils.data import DataLoader
@@ -55,6 +55,7 @@ if __name__ == "__main__":
     print("\n########## BUILDING MODEL ##########")
     #Define length of output vector
     num_cls = 1 if 'multilabel' not in cfg["data"]["target_format"] else len(cfg["data"]["classes"])
+    print(num_cls)
     model = timm.create_model(
             cfg["model"]["arch"], 
             pretrained=False, 
@@ -162,7 +163,7 @@ if __name__ == "__main__":
         raise Exception(f"UNKNOWN LOSS: '{cfg['training']['loss']}' must be one of the following: 'l1', 'mse', 'huber' ")
 
     #Retrieve metrics for logging 
-    metrics = get_metrics(cfg["data"]["target_format"])
+    metrics = get_metric(cfg["data"]["target_format"])
 
     #Create output folder
     out_folder = f'{args.output}/{cfg["model"]["task"]}-{cfg["model"]["arch"]}-{datetime.now().strftime("%Y-%m-%d-%H:%M")}'
@@ -218,6 +219,9 @@ if __name__ == "__main__":
             
             #Forward
             outputs = model(inputs)
+
+            print(outputs.shape)
+            break
             
             #Calculate loss
             loss = loss_fn(outputs, labels)
