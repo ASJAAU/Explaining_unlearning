@@ -30,6 +30,7 @@ if __name__ == "__main__":
     #Optional
     parser.add_argument("--device", default="cuda:0", help="Which device to prioritize")
     parser.add_argument("--output", default="./assets/", help="Where to save the model weights")
+    parser.add_argument("--verbose", default=False, action='store_true', help="Enable verbose status printing")
     args = parser.parse_args()        
 
     print("\n########## CLASSIFY-EXPLAIN-REMOVE ##########")
@@ -62,7 +63,7 @@ if __name__ == "__main__":
             ).to(args.device)
     
     #Print model summary
-    print(model)
+    # print(model)
 
     #Load weights 
     try:
@@ -70,7 +71,7 @@ if __name__ == "__main__":
         print(f"Loaded weights from '{args.weights}'")
 
         #Print model summary
-        print(model)
+        # print(model)
 
     except:
         raise Exception(f"Failed to load weights from '{args.weights}'")
@@ -81,8 +82,12 @@ if __name__ == "__main__":
                 noise_scale = cfg["unlearning"]["noise_scale"], 
                 trans = cfg["unlearning"]["transpose"], 
                 reinit_last = cfg["unlearning"]["reinit_last"],
-                train_dense = cfg["unlearning"]["train_dense"])
-    print(model)
+                train_dense = cfg["unlearning"]["train_dense"],
+                train_kernel = cfg["unlearning"]["train_kernel"],
+                train_bias = cfg["unlearning"]["train_bias"],
+                train_last = cfg["unlearning"]["train_last"],                
+                )
+    # print(model)
 
     print("\n########## PREPARING DATA ##########")
     print("\n### CREATING TRAINING DATASET")
@@ -94,7 +99,7 @@ if __name__ == "__main__":
         transform=train_transforms,
         target_format=cfg["data"]["target_format"],
         device=args.device,
-        verbose=True, #Print status and overview
+        verbose=args.verbose, #Print status and overview
         )
     
     #initialize training dataloader
@@ -118,7 +123,7 @@ if __name__ == "__main__":
         transform=valid_transforms,
         target_format=cfg["data"]["target_format"],
         device=args.device,
-        verbose=True, #Print status and overview
+        verbose=args.verbose, #Print status and overview
         )
     
     #initialize validation dataloader
@@ -147,7 +152,14 @@ if __name__ == "__main__":
         )
     
     #Define loss
-    loss_fn = torch.nn.CrossEntropyLoss()
+    if cfg["training"]["loss"] == "huber":
+        loss_fn = torch.nn.HuberLoss(delta=2.0)
+    elif cfg["training"]["loss"] == "l1":
+        loss_fn = torch.nn.L1Loss()
+    elif cfg["training"]["loss"] == "mse":
+        loss_fn = torch.nn.MSELoss()
+    else:
+        raise Exception(f"UNKNOWN LOSS: '{cfg['training']['loss']}' must be one of the following: 'l1', 'mse', 'huber' ")
 
     #Retrieve metrics for logging 
     metrics = get_metrics(cfg["data"]["target_format"])
@@ -159,16 +171,38 @@ if __name__ == "__main__":
     existsfolder(out_folder+"/weights")
 
     #Save copy of config
+    cfg["folder_name"] = out_folder
     with open(out_folder + "/config.yaml", 'w') as f:
         yaml.dump(cfg, f, default_flow_style=False)
 
-    # Logging
-    if 'multilabel' not in cfg["data"]["target_format"]:
-        logger = Logger(cfg, out_folder=out_folder)
-    elif 'multilabel' in cfg["data"]["target_format"]:
-        logger = Logger(cfg, out_folder=out_folder, classwise_metrics=cfg["data"]["classes"])
+    if 'counts' in cfg["data"]["target_format"]:
+        if 'multilabel' in cfg["data"]["target_format"]:
+            logger = Logger(cfg, out_folder=out_folder, metrics=cfg["evaluation"]["metrics"], classwise_metrics=cfg["data"]["classes"])
+        else:
+            logger = Logger(cfg, out_folder=out_folder, metrics=cfg["evaluation"]["metrics"])
+    elif 'binary' in cfg["data"]["target_format"]:
+        if 'multilabel' in cfg["data"]["target_format"]:
+            raise NotImplemented
+            #logger = Logger(cfg, out_folder=None, metrics=cfg["evaluation"]["metrics"], classwise_metrics=cfg["data"]["classes"])
+        else:
+            raise NotImplemented
+            #logger = Logger(cfg, out_folder=None, metrics=cfg["evaluation"]["metrics"])
     else: 
         raise Exception(f"Logging for {cfg['data']['target_format']} is improperly retrieved")
+
+
+    #Plotting for Validation
+    if cfg["wandb"]["plotting"]:
+        extra_plots = {}
+        from utils.wandb_plots import conf_matrix, conf_matrix_plot
+        from functools import partial
+        #extra_plots[f"conf"] = conf_matrix
+        extra_plots[f"conf_plot"] = conf_matrix_plot
+        if 'multilabel' in cfg["data"]["target_format"]:
+            for i,c in enumerate(cfg["data"]["classes"]):
+                #extra_plots[f"conf_{c}"] = partial(conf_matrix, idx=i)
+                extra_plots[f"conf_plot_{c}"] = partial(conf_matrix_plot, idx=i)
+
 
     print("\n########## TRAINING MODEL ##########")
     for epoch in tqdm.tqdm(range(cfg["training"]["epochs"]), unit="Epoch", desc="Epochs"):
