@@ -153,6 +153,7 @@ if __name__ == "__main__":
         )
     
     #Define loss
+    print("\n### INITIALIZING LOSS")
     loss_fn = ForgetLoss(
         class_to_forget=cfg["unlearning"]["class_to_forget"],
         target_format=cfg["data"]["target_format"],
@@ -163,6 +164,7 @@ if __name__ == "__main__":
 
 
     #Retrieve metrics for logging 
+    print("\n### INITIALIZING METRICS")
     metrics = get_metric(cfg["data"]["target_format"])
 
     #Create output folder
@@ -232,7 +234,7 @@ if __name__ == "__main__":
             logger.add_prediction(outputs.detach().to("cpu").numpy(), labels.detach().to("cpu").numpy())
 
             #Check for loggin frequency
-            if i % cfg["wandb"]["log_freq"] == 0:
+            if i % cfg["training"]["log_freq"] == 0:
                 logs = logger.log(
                     xargs={
                         "loss": running_loss
@@ -266,11 +268,12 @@ if __name__ == "__main__":
 
         #Check for loggin frequency
         logs = logger.log(
+            clear_buffer=True,
+            prepend='valid',
+            extras=extra_plots,
             xargs={
                 "loss": running_loss / len(valid_dataloader)
             },
-            clear_buffer=True,
-            prepend='valid'
         )
 
         #Save Model

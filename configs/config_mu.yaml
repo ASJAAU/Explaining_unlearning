@@ -31,6 +31,8 @@ unlearning:
   train_kernel: True
   train_bias: True
   train_last: True
+  class_to_forget: "human"
+  type: "skip"
 
 wandb:
   enabled: False
