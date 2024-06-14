@@ -129,16 +129,51 @@ def confuse_vision(model, noise_scale = 0.1, trans = True, reinit_last = True, t
 
 
 class ForgetLoss(nn.Module):
-    def __init__(self, class_to_forget, target_format, loss_fn):
+    def __init__(self, class_to_forget, target_format, loss_fn, classes, unlearning_type="skip"):
         super(ForgetLoss, self).__init__()
-        self.class_to_forget = class_to_forget
         self.target_format = target_format
-        self.loss_fn = loss_fn        
+        self.classes = classes
+
+        if unlearning_type not in ["skip", "zero"]:
+            raise Exception(f"UNKNOWN UNLEARNING TYPE: '{unlearning_type}' must be one of the following: 'skip', 'zero'")
+        self.unlearning_type = unlearning_type
+
+        if loss_fn == "huber":
+            self.loss_fn = torch.nn.HuberLoss(delta=2.0)
+        elif loss_fn == "l1":
+            self.loss_fn = torch.nn.L1Loss()
+        elif loss_fn == "mse":
+            self.loss_fn = torch.nn.MSELoss()
+        else:
+            raise Exception(f"UNKNOWN LOSS: '{loss_fn}' must be one of the following: 'l1', 'mse', 'huber' ")     
+
+        if "counts" in self.target_format:
+            if "multilabel" in self.target_format:
+                self.class_to_forget = class_to_forget
+                self.class_to_forget_idx = [i for i, c in enumerate(self.classes) if c == self.class_to_forget]
+                if len(self.class_to_forget_idx) == 0:
+                    raise Exception(f"CLASS TO FORGET: '{class_to_forget}' must be one of the following: {self.classes}")
+                print(f"Class to forget: {self.class_to_forget}")  
+            else:
+                raise Exception(f"MULTILABEL: 'multilabel' must be in the target format")
+        else:
+            raise Exception(f"COUNTS: 'counts' must be in the target format")                                                            
 
     def forward(self, inputs, targets):
         if "counts" in self.target_format:
             if "multilabel" in self.target_format:
-                pass
-
-        loss = self.loss_fn(inputs, targets)
-        return loss.mean()
+                if self.unlearning_type == "skip":
+                    #Skip class to forget
+                    targets = torch.cat((targets[:,:self.class_to_forget_idx[0]], targets[:,self.class_to_forget_idx[0]+1:]), dim=1)
+                    inputs = torch.cat((inputs[:,:self.class_to_forget_idx[0]], inputs[:,self.class_to_forget_idx[0]+1:]), dim=1)
+                    #Assert that the class was removed
+                    assert targets.shape[1] == inputs.shape[1] == len(self.classes) - 1, f"Class to forget was not removed: {targets.shape[1]} != {len(self.classes) - 1}"
+                elif self.unlearning_type == "zero":
+                    #Zero class to forget
+                    targets[:,self.class_to_forget_idx[0]] = 0
+                    inputs[:,self.class_to_forget_idx[0]] = 0
+                    #Assert that the class was zeroed
+                    assert targets[:,self.class_to_forget_idx[0]].sum() == inputs[:,self.class_to_forget_idx[0]].sum() == 0, f"Class to forget was not zeroed"
+                else:
+                    raise Exception(f"UNKNOWN UNLEARNING TYPE: '{self.unlearning_type}' must be one of the following: 'skip', 'zero'")
+        return self.loss_fn(inputs, targets)

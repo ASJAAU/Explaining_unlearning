@@ -153,14 +153,14 @@ if __name__ == "__main__":
         )
     
     #Define loss
-    if cfg["training"]["loss"] == "huber":
-        loss_fn = torch.nn.HuberLoss(delta=2.0)
-    elif cfg["training"]["loss"] == "l1":
-        loss_fn = torch.nn.L1Loss()
-    elif cfg["training"]["loss"] == "mse":
-        loss_fn = torch.nn.MSELoss()
-    else:
-        raise Exception(f"UNKNOWN LOSS: '{cfg['training']['loss']}' must be one of the following: 'l1', 'mse', 'huber' ")
+    loss_fn = ForgetLoss(
+        class_to_forget=cfg["unlearning"]["class_to_forget"],
+        target_format=cfg["data"]["target_format"],
+        loss_fn=cfg["training"]["loss"],
+        classes=cfg["data"]["classes"],
+        unlearning_type=cfg["unlearning"]["type"],
+    )
+
 
     #Retrieve metrics for logging 
     metrics = get_metric(cfg["data"]["target_format"])
@@ -219,9 +219,6 @@ if __name__ == "__main__":
             
             #Forward
             outputs = model(inputs)
-
-            print(outputs.shape)
-            break
             
             #Calculate loss
             loss = loss_fn(outputs, labels)

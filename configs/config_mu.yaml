@@ -15,6 +15,11 @@ model:
 data:
   target_format: "multilabel_counts"
   augment: False
+  classes:
+  - "human"
+  - "bicycle"
+  - "motorcycle"
+  - "vehicle"
 
 unlearning:
   noise_scale: 0.1
