@@ -35,4 +35,5 @@ unlearning:
   type: "skip"
 
 wandb:
-  enabled: False
+  tags:
+    - MU
