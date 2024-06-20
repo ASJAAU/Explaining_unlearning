@@ -6,7 +6,7 @@ import sys
 from tqdm import tqdm
 
 
-def confuse_vision(model, noise_scale = 0.1, trans = True, reinit_last = True, train_dense = True, train_kernel = True, train_bias = True, train_last = True):
+def confuse_vision(model, noise_scale = 0.1, add_noise = True, trans = True, reinit_last = True, train_dense = True, train_kernel = True, train_bias = True, train_last = True):
     """ Add Gaussian noise to the conv2d layers of the model.
         - model: a tf model with loaded weights
         - noise_scale: scale of the std of the Gaussian noise
@@ -34,40 +34,42 @@ def confuse_vision(model, noise_scale = 0.1, trans = True, reinit_last = True, t
                 # print(kernel[j,k,:,:])
                 # print(kernel[j,k,:,:].shape)
                 #Compute noise scale proportional to the std of the kernel
-                noise_std = torch.std(kernel[j,k,:,:]).item() * noise_scale
-                # print(noise_std)
-                if not noise_std > 0:
-                    # print("No noise added")
-                    noise_std = 0.01
-                #Add noise
-                kernel[j,k,:,:] += torch.normal(mean=0, std=noise_std, size=kernel[j,k,:,:].shape, device=kernel.device)
-                # print(kernel[j,k,:,:])
-                # print(kernel[j,k,:,:].shape)
+                if add_noise:
+                    noise_std = torch.std(kernel[j,k,:,:]).item() * noise_scale
+                    # print(noise_std)
+                    if not noise_std > 0:
+                        # print("No noise added")
+                        noise_std = 0.01
+                    #Add noise
+                    kernel[j,k,:,:] += torch.normal(mean=0, std=noise_std, size=kernel[j,k,:,:].shape, device=kernel.device)
+                    # print(kernel[j,k,:,:])
+                    # print(kernel[j,k,:,:].shape)
         #Update kernel
         conv.weight = nn.Parameter(kernel, requires_grad=train_kernel)
 
         #Confusing bias
         if conv.bias:
-            # print("There is bias")
-            bias = torch.clone(conv.bias)
-            # print(f"Layer {i}: {bias.shape}")
+            if add_noise:
+                # print("There is bias")
+                bias = torch.clone(conv.bias)
+                # print(f"Layer {i}: {bias.shape}")
 
-            #Compute noise scale proportional to the std of the bias
-            noise_std = torch.std(bias).item() * noise_scale
-            if not noise_std > 0:
-                noise_std = 0.01
-            #Add noise
-            bias += torch.normal(mean=0, std=noise_std, size=bias.shape, device=bias.device)
-            #Update bias
-            conv.bias = nn.Parameter(bias, requires_grad=train_bias)
+                #Compute noise scale proportional to the std of the bias
+                noise_std = torch.std(bias).item() * noise_scale
+                if not noise_std > 0:
+                    noise_std = 0.01
+                #Add noise
+                bias += torch.normal(mean=0, std=noise_std, size=bias.shape, device=bias.device)
+                #Update bias
+                conv.bias = nn.Parameter(bias, requires_grad=train_bias)
         # else: 
             # print("No bias")
             # bias = nn.Parameter(torch.zeros(conv.out_channels))
             # conv.bias = bias
 
         #Break for debugging
-        if i == 1:
-            break
+        # if i == 1:
+        #     break
 
     module_list = [module for module in model.modules() if not isinstance(module, nn.Sequential)]
     
@@ -87,7 +89,7 @@ def confuse_vision(model, noise_scale = 0.1, trans = True, reinit_last = True, t
                     print(f"Last layer is not linear: {m}")
                     raise ValueError("Last layer is not linear")
             #Otherwise add Gaussian noise
-            else:
+            elif add_noise:
                 if isinstance(m, nn.Linear):
                     print(f"Adding noise to last layer: {m}")
                     weight = torch.clone(m.weight)

@@ -81,6 +81,7 @@ if __name__ == "__main__":
     print("\n########## CONFUSING VISION ##########")
     model = confuse_vision(model, 
                 noise_scale = cfg["unlearning"]["noise_scale"], 
+                add_noise=cfg["unlearning"]["add_noise"],
                 trans = cfg["unlearning"]["transpose"], 
                 reinit_last = cfg["unlearning"]["reinit_last"],
                 train_dense = cfg["unlearning"]["train_dense"],

@@ -1,11 +1,11 @@
 base: "configs/config.yaml"
 
 training:
-  epochs: 5
+  epochs: 15
   lr: 0.1
   lr_steps: 5000
-  lr_decay: 0.1
-  batch_size: 2
+  lr_decay: 0.101
+  batch_size: 16
   log_freq: 500 #Number of batches
   loss: "huber"
 
@@ -25,15 +25,27 @@ unlearning:
   noise_scale: 0.1
   noise_scale_2: 0.01
   epochs_2: 10
-  transpose: True
-  reinit_last: True  
+  transpose: False
+  reinit_last: False
+  add_noise: False  
   train_dense: True
   train_kernel: True
   train_bias: True
   train_last: True
   class_to_forget: "human"
-  type: "skip"
+  type: "zero"
 
 wandb:
   tags:
     - MU
+    - Zero
+    - Human
+    - Huber
+    - '4'
+    - resilient-tree-3
+    - multi_count
+    - Finetuning
+    # - Trans
+    # - Kernel
+    # - Dense
+    # - Reinit_last
