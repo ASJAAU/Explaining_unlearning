@@ -171,7 +171,7 @@ def sebastian_unlearn(model, sebastian_type="prune", quantile=0.99, train_bias =
 
     EPS = 10e-6
     locked_masks = {n: torch.abs(w) < EPS for n, w in model.named_parameters() if n.endswith('weight')}
-    print(locked_masks)
+    # print(locked_masks)
 
     # Get the weights and biases of the model
     weights = []
@@ -190,29 +190,30 @@ def sebastian_unlearn(model, sebastian_type="prune", quantile=0.99, train_bias =
 
     # Get the L1 norm of the weights
     weight_l1 = torch.cat([torch.abs(torch.flatten(w)) for w in weights])
-    print(weight_l1.size())
+    # print(weight_l1.size())
     # Get the 99% quantile of the L1 norm
     quantile_value = np.quantile(weight_l1.detach().cpu().numpy(), quantile)
-    print(quantile_value)
+    # print(quantile_value)
     # Get the indices of the weights that are less than the 99% quantile
-    locked_masks = {n: torch.abs(w) < quantile_value for n, w in model.named_parameters() if n.endswith('weight')}
+    locked_masks = {n: torch.abs(w) > quantile_value for n, w in model.named_parameters() if n.endswith('weight')}
     for n, param in model.named_parameters():
         if n in locked_masks:
             if sebastian_type == "prune":
-                print(f"Pruning {n}")
-                print(param.data)
+                # print(f"Pruning {n}")
+                # print(param.data)
                 param.data = param.data * locked_masks[n]
                 param.requires_grad = True
-                print(param.data)
+                # print(param.data)
+                # break
             elif sebastian_type == "reinitialize":
                 # Reinitialize ONLY MASKED WEIGHTS to xavier uniform
-                print(f"Reinitializing {n}")
-                print(param.data)
+                # print(f"Reinitializing {n}")
+                # print(param.data)
                 xavier = torch.ones_like(param.data)
                 nn.init.xavier_uniform_(xavier)
                 param.data = param.data * locked_masks[n] + xavier * (~locked_masks[n])
                 param.requires_grad = True
-                print(param.data)
+                # print(param.data)
                 
         if n.endswith('bias'):
             param.data = torch.zeros_like(param.data, requires_grad=train_bias)
@@ -281,32 +282,35 @@ class ForgetLoss(nn.Module):
         else:
             raise Exception(f"COUNTS: 'counts' must be in the target format")                                                            
 
-    def forward(self, inputs, targets):
+    def forward(self, inputs, outputs, labels):
         if "counts" in self.target_format:
             if "multilabel" in self.target_format:
-                if self.unlearning_type == "skip":
-                    #Skip class to forget
-                    targets = torch.cat((targets[:,:self.class_to_forget_idx[0]], targets[:,self.class_to_forget_idx[0]+1:]), dim=1)
-                    inputs = torch.cat((inputs[:,:self.class_to_forget_idx[0]], inputs[:,self.class_to_forget_idx[0]+1:]), dim=1)
-                    #Assert that the class was removed
-                    assert targets.shape[1] == inputs.shape[1] == len(self.classes) - 1, f"Class to forget was not removed: {targets.shape[1]} != {len(self.classes) - 1}"
-                elif self.unlearning_type == "zero":
-                    #Zero class to forget
-                    targets[:,self.class_to_forget_idx[0]] = 0
-                    inputs[:,self.class_to_forget_idx[0]] = 0
-                    #Assert that the class was zeroed
-                    assert targets[:,self.class_to_forget_idx[0]].sum() == inputs[:,self.class_to_forget_idx[0]].sum() == 0, f"Class to forget was not zeroed"
-                else:
-                    raise Exception(f"UNKNOWN UNLEARNING TYPE: '{self.unlearning_type}' must be one of the following: 'skip', 'zero'")
-                
+                labels = self.set_unlearn_target(labels)
+                outputs = self.set_unlearn_target(outputs)
                 if self.unlearning_method == "confuse_vision":
                     #Compute loss
-                    return self.loss_fn(inputs, targets)
+                    return self.loss_fn(outputs, labels)
                 elif self.unlearning_method == "sebastian_unlearn":
                     #Add MSE of entropy regularization
                     regularizer = torch.nn.MSELoss()
-                    return self.loss_fn(inputs, targets) + regularizer(targets, self.original(inputs))
+                    
+                    return self.loss_fn(outputs, labels) + regularizer(labels, self.set_unlearn_target(self.original(inputs)))
 
                 else:
                     raise Exception(f"UNKNOWN UNLEARNING METHOD: '{self.unlearning_method}' must be one of the following: 'confuse_vision', 'sebastian_unlearn'")
         
+
+    def set_unlearn_target(self, tensor):
+        if self.unlearning_type == "skip":
+            #Skip class to forget
+            tensor = torch.cat((tensor[:,:self.class_to_forget_idx[0]], tensor[:,self.class_to_forget_idx[0]+1:]), dim=1)
+            #Assert that the class was removed
+            assert tensor.shape[1] == len(self.classes) - 1, f"Class to forget was not removed: {tensor.shape[1]} != {len(self.classes) - 1}"
+        elif self.unlearning_type == "zero":
+            #Zero class to forget
+            tensor[:,self.class_to_forget_idx[0]] = 0
+            #Assert that the class was zeroed
+            assert tensor[:,self.class_to_forget_idx[0]].sum() ==  0, f"Class to forget was not zeroed"
+        else:
+            raise Exception(f"UNKNOWN UNLEARNING TYPE: '{self.unlearning_type}' must be one of the following: 'skip', 'zero'")
+        return tensor

@@ -241,7 +241,7 @@ if __name__ == "__main__":
             outputs = unlearned_model(inputs)
             
             #Calculate loss
-            loss = loss_fn(outputs, labels)
+            loss = loss_fn(inputs, outputs, labels)
             loss.backward()
             running_loss += loss.item()
 
