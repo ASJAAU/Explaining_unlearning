@@ -130,7 +130,7 @@ def confuse_vision(model, noise_scale = 0.1, add_noise = True, trans = True, rei
 
 
 
-def sebastian_unlearn(model, sebastian_type="prune", quantile=0.99, train_weight = True, train_bias = True):
+def sebastian_unlearn(model, sebastian_type="prune", quantile=0.99, train_bias = True):
     """ 
     Forget a class by removing or reinitializing the 99% quantile of the weights and setting the bias to zero.
     Criteria of removing weights is based on the L1 norm of the weights.
@@ -196,7 +196,27 @@ def sebastian_unlearn(model, sebastian_type="prune", quantile=0.99, train_weight
     print(quantile_value)
     # Get the indices of the weights that are less than the 99% quantile
     locked_masks = {n: torch.abs(w) < quantile_value for n, w in model.named_parameters() if n.endswith('weight')}
-     
+    for n, param in model.named_parameters():
+        if n in locked_masks:
+            if sebastian_type == "prune":
+                print(f"Pruning {n}")
+                print(param.data)
+                param.data = param.data * locked_masks[n]
+                param.requires_grad = True
+                print(param.data)
+            elif sebastian_type == "reinitialize":
+                # Reinitialize ONLY MASKED WEIGHTS to xavier uniform
+                print(f"Reinitializing {n}")
+                print(param.data)
+                xavier = torch.ones_like(param.data)
+                nn.init.xavier_uniform_(xavier)
+                param.data = param.data * locked_masks[n] + xavier * (~locked_masks[n])
+                param.requires_grad = True
+                print(param.data)
+                
+        if n.endswith('bias'):
+            param.data = torch.zeros_like(param.data, requires_grad=train_bias)
+
     # indices = weight_l1 < quantile_value
     # Set the weights to zero
     # for i in indices:
@@ -214,7 +234,7 @@ def sebastian_unlearn(model, sebastian_type="prune", quantile=0.99, train_weight
     # for b in biases:
     #     b = nn.Parameter(b, requires_grad=train_bias)
     
-    return model
+    return model, locked_masks
     
 
 

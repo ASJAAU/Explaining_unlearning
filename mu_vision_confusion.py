@@ -98,8 +98,7 @@ if __name__ == "__main__":
                     train_last = cfg["unlearning"]["train_last"],                
                     )
     elif cfg["unlearning"]["method"] == "sebastian_unlearn":
-        unlearned_model = sebastian_unlearn(unlearned_model,
-                    train_weight=cfg["unlearning"]["train_kernel"],
+        unlearned_model, locked_masks = sebastian_unlearn(unlearned_model,
                     train_bias=cfg["unlearning"]["train_bias"],
                     )
     else:
@@ -245,6 +244,12 @@ if __name__ == "__main__":
             loss = loss_fn(outputs, labels)
             loss.backward()
             running_loss += loss.item()
+
+            if cfg["unlearning"]["method"] == "sebastian_unlearn":
+                #Freeze weights
+                for name, param in unlearned_model.named_parameters():
+                    if param.grad is not None and name in locked_masks:
+                        param.grad[locked_masks[name]] = 0
 
             #Propogate error
             optimizer.step()
