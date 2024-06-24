@@ -34,12 +34,13 @@ unlearning:
   train_last: True
   class_to_forget: "human"
   type: "zero"
+  method: "confuse_vision"
 
 wandb:
   enabled: True
   tags:
     - MU
-    - sebastian
+    - confusion
     - Zero
     - Human
     - Huber
@@ -51,4 +52,4 @@ wandb:
     # - Kernel
     # - Dense
     # - Reinit_last
-    # - confusion
+    # - sebastian

@@ -150,7 +150,7 @@ if __name__ == "__main__":
 
     #Define optimizer
     optimizer= torch.optim.Adam(
-        model.parameters(), 
+        unlearned_model.parameters(), 
         lr=cfg["training"]["lr"]
         )
 
@@ -222,7 +222,7 @@ if __name__ == "__main__":
     print("\n########## TRAINING MODEL ##########")
     for epoch in tqdm.tqdm(range(cfg["training"]["epochs"]), unit="Epoch", desc="Epochs"):
         #Train
-        model.train()
+        unlearned_model.train()
         running_loss = 0
         for i, batch in tqdm.tqdm(enumerate(train_dataloader), unit="Batch", desc="Training", leave=False, total=len(train_dataloader)):
             #Reset gradients (redundant but sanity check)
@@ -232,7 +232,7 @@ if __name__ == "__main__":
             inputs, labels = batch
             
             #Forward
-            outputs = model(inputs)
+            outputs = unlearned_model(inputs)
             
             #Calculate loss
             loss = loss_fn(outputs, labels)
@@ -261,7 +261,7 @@ if __name__ == "__main__":
         lr_schedule.step()
 
         #Validate
-        model.eval()
+        unlearned_model.eval()
         running_loss = 0
         logger.clear_buffer()
         for i, batch in tqdm.tqdm(enumerate(valid_dataloader), unit="Batch", desc="Validating", leave=False, total=len(valid_dataloader)):
@@ -269,7 +269,7 @@ if __name__ == "__main__":
             inputs, labels = batch
             
             #Forward
-            outputs = model(inputs)
+            outputs = unlearned_model(inputs)
 
             #Calculate loss
             loss = loss_fn(outputs, labels)
@@ -289,4 +289,4 @@ if __name__ == "__main__":
         )
 
         #Save Model
-        torch.save(model.state_dict(), out_folder + "/weights/" + f'{cfg["model"]["arch"]}-{cfg["model"]["task"]}-Epoch{epoch}.pt')
+        torch.save(unlearned_model.state_dict(), out_folder + "/weights/" + f'{cfg["model"]["arch"]}-{cfg["model"]["task"]}-Epoch{epoch}.pt')
