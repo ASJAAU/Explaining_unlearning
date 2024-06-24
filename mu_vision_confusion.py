@@ -62,6 +62,12 @@ if __name__ == "__main__":
             in_chans=1, 
             num_classes = num_cls,
             ).to(args.device)
+    unlearned_model = timm.create_model(
+            cfg["model"]["arch"], 
+            pretrained=False, 
+            in_chans=1, 
+            num_classes = num_cls,
+            ).to(args.device)
     
     #Print model summary
     # print(model)
@@ -69,6 +75,7 @@ if __name__ == "__main__":
     #Load weights 
     try:
         model.load_state_dict(torch.load(args.weights))
+        unlearned_model.load_state_dict(torch.load(args.weights))
         print(f"Loaded weights from '{args.weights}'")
 
         #Print model summary
@@ -80,7 +87,7 @@ if __name__ == "__main__":
     # Confuse vision (add Gaussian noise to convolutional kernels)
     print("\n########## UNLEARNING ##########")
     if cfg["unlearning"]["method"] == "confuse_vision":
-        unlearned_model = confuse_vision(torch.clone(model), 
+        unlearned_model = confuse_vision(unlearned_model, 
                     noise_scale = cfg["unlearning"]["noise_scale"], 
                     add_noise=cfg["unlearning"]["add_noise"],
                     trans = cfg["unlearning"]["transpose"], 
@@ -91,7 +98,7 @@ if __name__ == "__main__":
                     train_last = cfg["unlearning"]["train_last"],                
                     )
     elif cfg["unlearning"]["method"] == "sebastian_unlearn":
-        unlearned_model = sebastian_unlearn(torch.clone(model),
+        unlearned_model = sebastian_unlearn(unlearned_model,
                     train_weight=cfg["unlearning"]["train_kernel"],
                     train_bias=cfg["unlearning"]["train_bias"],
                     )

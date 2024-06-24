@@ -185,20 +185,20 @@ def sebastian_unlearn(model, sebastian_type="prune", quantile=0.99, train_weight
     # Get the indices of the weights that are less than the 99% quantile
     indices = weight_l1 < quantile_value
     # Set the weights to zero
-    for i, w in enumerate(weights):
-        w[indices] = torch.zeros_like(w[indices])
+    for i in indices:
+        weights[i] = nn.Parameter(torch.zeros_like(weights[i]), requires_grad=train_weight)
     # Set the biases to zero
     for b in biases:
-        b = torch.zeros_like(b)
+        b = nn.Parameter(torch.zeros_like(b), requires_grad=train_bias)
     # Update the weights and biases of the model
-    for i, w in enumerate(weights):
-        # Freeze the weigths of the 99% quantile
-        if i in indices:
-            w == nn.Parameter(w, requires_grad=train_weight)
-        else:
-            w = nn.Parameter(w, requires_grad=True)
-    for b in biases:
-        b = nn.Parameter(b, requires_grad=train_bias)
+    # for i, w in enumerate(weights):
+    #     # Freeze the weigths of the 99% quantile
+    #     if i in indices:
+    #         w = nn.Parameter(w, requires_grad=train_weight)
+    #     else:
+    #         w = nn.Parameter(w, requires_grad=True)
+    # for b in biases:
+    #     b = nn.Parameter(b, requires_grad=train_bias)
     
     return model
     
@@ -207,16 +207,16 @@ def sebastian_unlearn(model, sebastian_type="prune", quantile=0.99, train_weight
 
 
 class ForgetLoss(nn.Module):
-    def __init__(self, class_to_forget, target_format, loss_fn, classes, unlearning_type="skip", unlearing_method="confuse_vision", original=None):
+    def __init__(self, class_to_forget, target_format, loss_fn, classes, unlearning_type="skip", unlearning_method="confuse_vision", original=None):
         super(ForgetLoss, self).__init__()
         self.target_format = target_format
         self.classes = classes
 
-        assert unlearing_method in ["confuse_vision", "sebastian_unlearn"], f"UNKNOWN UNLEARNING METHOD: '{unlearing_method}' must be one of the following: 'confuse_vision', 'sebastian_unlearn'"
-        self.unlearing_method = unlearing_method
+        assert unlearning_method in ["confuse_vision", "sebastian_unlearn"], f"UNKNOWN UNLEARNING METHOD: '{unlearning_method}' must be one of the following: 'confuse_vision', 'sebastian_unlearn'"
+        self.unlearning_method = unlearning_method
 
         #Assert original is a torch model
-        assert isinstance(original, torch.nn.Module) if unlearing_method == "sebastian_unlearn" else True, f"ORIGINAL: '{original}' must be a torch model"                                                  
+        assert isinstance(original, torch.nn.Module) if unlearning_method == "sebastian_unlearn" else True, f"ORIGINAL: '{original}' must be a torch model"                                                  
         self.original = original
         #Freeze original model
         for param in self.original.parameters():
@@ -265,14 +265,14 @@ class ForgetLoss(nn.Module):
                 else:
                     raise Exception(f"UNKNOWN UNLEARNING TYPE: '{self.unlearning_type}' must be one of the following: 'skip', 'zero'")
                 
-                if self.unlearing_method == "confuse_vision":
+                if self.unlearning_method == "confuse_vision":
                     #Compute loss
                     return self.loss_fn(inputs, targets)
-                elif self.unlearing_method == "sebastian_unlearn":
+                elif self.unlearning_method == "sebastian_unlearn":
                     #Add MSE of entropy regularization
                     regularizer = torch.nn.MSELoss()
                     return self.loss_fn(inputs, targets) + regularizer(targets, self.original(inputs))
 
                 else:
-                    raise Exception(f"UNKNOWN UNLEARNING METHOD: '{self.unlearing_method}' must be one of the following: 'confuse_vision', 'sebastian_unlearn'")
+                    raise Exception(f"UNKNOWN UNLEARNING METHOD: '{self.unlearning_method}' must be one of the following: 'confuse_vision', 'sebastian_unlearn'")
         

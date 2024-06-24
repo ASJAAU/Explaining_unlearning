@@ -7,7 +7,7 @@ training:
   lr_decay: 0.101
   batch_size: 16
   log_freq: 500 #Number of batches
-  loss: "huber"
+  loss: "mse"
 
 model:
   exp: "MU01"
@@ -29,27 +29,28 @@ unlearning:
   reinit_last: False
   add_noise: False  
   train_dense: True
-  train_kernel: True
-  train_bias: True
+  train_kernel: False
+  train_bias: False
   train_last: True
   class_to_forget: "human"
-  type: "zero"
-  method: "confuse_vision"
+  type: "skip"
+  method: "sebastian_unlearn"
 
 wandb:
   enabled: True
   tags:
     - MU
-    - confusion
-    - Zero
+    - sebastian
+    - Skip
     - Human
-    - Huber
+    - MSE
     - '4'
     - resilient-tree-3
     - multi_count
-    - Finetuning
+    - Pruning
+    # - Finetuning
     # - Trans
     # - Kernel
     # - Dense
     # - Reinit_last
-    # - sebastian
+    # - confusion
