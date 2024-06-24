@@ -183,8 +183,6 @@ def sebastian_unlearn(model, sebastian_type="prune", quantile=0.99, train_weight
         # print(name)
         if "weight" in name:
             weights.append(p)
-            print(p.size())
-            print(locked_masks[name].size())
         elif "bias" in name:
             biases.append(p)
 
@@ -194,17 +192,18 @@ def sebastian_unlearn(model, sebastian_type="prune", quantile=0.99, train_weight
     weight_l1 = torch.cat([torch.abs(torch.flatten(w)) for w in weights])
     print(weight_l1.size())
     # Get the 99% quantile of the L1 norm
-    quantile_value = torch.quantile(weight_l1, quantile)
+    quantile_value = np.quantile(weight_l1.detach().cpu().numpy(), quantile)
     print(quantile_value)
     # Get the indices of the weights that are less than the 99% quantile
-    return model.nstop() 
-    indices = weight_l1 < quantile_value
+    locked_masks = {n: torch.abs(w) < quantile_value for n, w in model.named_parameters() if n.endswith('weight')}
+     
+    # indices = weight_l1 < quantile_value
     # Set the weights to zero
-    for i in indices:
-        weights[i] = nn.Parameter(torch.zeros_like(weights[i]), requires_grad=train_weight)
-    # Set the biases to zero
-    for b in biases:
-        b = nn.Parameter(torch.zeros_like(b), requires_grad=train_bias)
+    # for i in indices:
+    #     weights[i] = nn.Parameter(torch.zeros_like(weights[i]), requires_grad=train_weight)
+    # # Set the biases to zero
+    # for b in biases:
+    #     b = nn.Parameter(torch.zeros_like(b), requires_grad=train_bias)
     # Update the weights and biases of the model
     # for i, w in enumerate(weights):
     #     # Freeze the weigths of the 99% quantile
