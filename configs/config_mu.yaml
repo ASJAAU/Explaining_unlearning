@@ -36,8 +36,10 @@ unlearning:
   type: "zero"
 
 wandb:
+  enabled: True
   tags:
     - MU
+    - sebastian
     - Zero
     - Human
     - Huber
@@ -49,3 +51,4 @@ wandb:
     # - Kernel
     # - Dense
     # - Reinit_last
+    # - confusion

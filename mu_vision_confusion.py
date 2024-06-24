@@ -7,7 +7,7 @@ import numpy as np
 from data.dataloader import REPAIHarborfrontDataset
 from utils.utils import Logger, get_metric
 from utils.utils import existsfolder, get_config
-from utils.unlearning import confuse_vision, ForgetLoss
+from utils.unlearning import confuse_vision, sebastian_unlearn, ForgetLoss
 
 import torch
 from torch.utils.data import DataLoader
@@ -78,17 +78,26 @@ if __name__ == "__main__":
         raise Exception(f"Failed to load weights from '{args.weights}'")
 
     # Confuse vision (add Gaussian noise to convolutional kernels)
-    print("\n########## CONFUSING VISION ##########")
-    model = confuse_vision(model, 
-                noise_scale = cfg["unlearning"]["noise_scale"], 
-                add_noise=cfg["unlearning"]["add_noise"],
-                trans = cfg["unlearning"]["transpose"], 
-                reinit_last = cfg["unlearning"]["reinit_last"],
-                train_dense = cfg["unlearning"]["train_dense"],
-                train_kernel = cfg["unlearning"]["train_kernel"],
-                train_bias = cfg["unlearning"]["train_bias"],
-                train_last = cfg["unlearning"]["train_last"],                
-                )
+    print("\n########## UNLEARNING ##########")
+    if cfg["unlearning"]["method"] == "confuse_vision":
+        unlearned_model = confuse_vision(torch.clone(model), 
+                    noise_scale = cfg["unlearning"]["noise_scale"], 
+                    add_noise=cfg["unlearning"]["add_noise"],
+                    trans = cfg["unlearning"]["transpose"], 
+                    reinit_last = cfg["unlearning"]["reinit_last"],
+                    train_dense = cfg["unlearning"]["train_dense"],
+                    train_kernel = cfg["unlearning"]["train_kernel"],
+                    train_bias = cfg["unlearning"]["train_bias"],
+                    train_last = cfg["unlearning"]["train_last"],                
+                    )
+    elif cfg["unlearning"]["method"] == "sebastian_unlearn":
+        unlearned_model = sebastian_unlearn(torch.clone(model),
+                    train_weight=cfg["unlearning"]["train_kernel"],
+                    train_bias=cfg["unlearning"]["train_bias"],
+                    )
+    else:
+        raise Exception(f"Unlearning method '{cfg['unlearning']['method']}' not recognized")
+        
     # print(model)
 
     print("\n########## PREPARING DATA ##########")
@@ -161,6 +170,8 @@ if __name__ == "__main__":
         loss_fn=cfg["training"]["loss"],
         classes=cfg["data"]["classes"],
         unlearning_type=cfg["unlearning"]["type"],
+        unlearning_method=cfg["unlearning"]["method"],
+        original=model
     )
 
 

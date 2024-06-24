@@ -130,11 +130,97 @@ def confuse_vision(model, noise_scale = 0.1, add_noise = True, trans = True, rei
 
 
 
+def sebastian_unlearn(model, sebastian_type="prune", quantile=0.99, train_weight = True, train_bias = True):
+    """ 
+    Forget a class by removing or reinitializing the 99% quantile of the weights and setting the bias to zero.
+    Criteria of removing weights is based on the L1 norm of the weights.
+    """
+    
+    # # Get all the layers of the model
+    # module_list = [module for module in model.modules() if not isinstance(module, nn.Sequential)]
+
+    # # Get a list of all the weights and set the bias to zero
+    # for i, m in enumerate(module_list):
+    #     if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
+    #         # Get the weights
+    #         weight = torch.clone(m.weight)
+    #         # Get the bias
+    #         bias = torch.clone(m.bias)
+    #         # Get the L1 norm of the weights
+    #         weight_l1 = torch.norm(weight, p=1, dim=1)
+    #         # Get the 99% quantile of the L1 norm
+    #         quantile_value = torch.quantile(weight_l1, quantile)
+    #         # Get the indices of the weights that are less than the 99% quantile
+    #         indices = weight_l1 < quantile_value
+    #         # Set the weights to zero
+    #         weight[indices] = torch.zeros_like(weight[indices])
+    #         # Set the bias to zero
+    #         bias = torch.zeros_like(bias)
+    #         # Update the weights and bias
+    #         if isinstance(m, nn.Conv2d):
+    #             m.weight = nn.Parameter(weight, requires_grad=train_kernel)
+    #             m.bias = nn.Parameter(bias, requires_grad=train_bias)
+    #         else:
+    #             m.weight = nn.Parameter(weight, requires_grad=train_dense)
+    #             m.bias = nn.Parameter(bias, requires_grad=train_dense)
+    #         if i == len(module_list) - 1:
+    #             m.requires_grad = train_last
+
+    # Get a list of all the parameters of the model
+    parameters = model.parameters()
+
+    # Get the weights and biases of the model
+    weights = []
+    biases = []
+    for p in parameters:
+        if "weight" in p.name:
+            weights.append(p)
+        elif "bias" in p.name:
+            biases.append(p)
+
+    # Get the L1 norm of the weights
+    weight_l1 = torch.cat([torch.norm(w, p=1) for w in weights])
+    # Get the 99% quantile of the L1 norm
+    quantile_value = torch.quantile(weight_l1, quantile)
+    # Get the indices of the weights that are less than the 99% quantile
+    indices = weight_l1 < quantile_value
+    # Set the weights to zero
+    for i, w in enumerate(weights):
+        w[indices] = torch.zeros_like(w[indices])
+    # Set the biases to zero
+    for b in biases:
+        b = torch.zeros_like(b)
+    # Update the weights and biases of the model
+    for i, w in enumerate(weights):
+        # Freeze the weigths of the 99% quantile
+        if i in indices:
+            w == nn.Parameter(w, requires_grad=train_weight)
+        else:
+            w = nn.Parameter(w, requires_grad=True)
+    for b in biases:
+        b = nn.Parameter(b, requires_grad=train_bias)
+    
+    return model
+    
+
+
+
+
 class ForgetLoss(nn.Module):
-    def __init__(self, class_to_forget, target_format, loss_fn, classes, unlearning_type="skip"):
+    def __init__(self, class_to_forget, target_format, loss_fn, classes, unlearning_type="skip", unlearing_method="confuse_vision", original=None):
         super(ForgetLoss, self).__init__()
         self.target_format = target_format
         self.classes = classes
+
+        assert unlearing_method in ["confuse_vision", "sebastian_unlearn"], f"UNKNOWN UNLEARNING METHOD: '{unlearing_method}' must be one of the following: 'confuse_vision', 'sebastian_unlearn'"
+        self.unlearing_method = unlearing_method
+
+        #Assert original is a torch model
+        assert isinstance(original, torch.nn.Module) if unlearing_method == "sebastian_unlearn" else True, f"ORIGINAL: '{original}' must be a torch model"                                                  
+        self.original = original
+        #Freeze original model
+        for param in self.original.parameters():
+            param.requires_grad = False
 
         if unlearning_type not in ["skip", "zero"]:
             raise Exception(f"UNKNOWN UNLEARNING TYPE: '{unlearning_type}' must be one of the following: 'skip', 'zero'")
@@ -178,4 +264,15 @@ class ForgetLoss(nn.Module):
                     assert targets[:,self.class_to_forget_idx[0]].sum() == inputs[:,self.class_to_forget_idx[0]].sum() == 0, f"Class to forget was not zeroed"
                 else:
                     raise Exception(f"UNKNOWN UNLEARNING TYPE: '{self.unlearning_type}' must be one of the following: 'skip', 'zero'")
-        return self.loss_fn(inputs, targets)
+                
+                if self.unlearing_method == "confuse_vision":
+                    #Compute loss
+                    return self.loss_fn(inputs, targets)
+                elif self.unlearing_method == "sebastian_unlearn":
+                    #Add MSE of entropy regularization
+                    regularizer = torch.nn.MSELoss()
+                    return self.loss_fn(inputs, targets) + regularizer(targets, self.original(inputs))
+
+                else:
+                    raise Exception(f"UNKNOWN UNLEARNING METHOD: '{self.unlearing_method}' must be one of the following: 'confuse_vision', 'sebastian_unlearn'")
+        
