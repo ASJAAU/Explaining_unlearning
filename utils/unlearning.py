@@ -167,16 +167,28 @@ def sebastian_unlearn(model, sebastian_type="prune", quantile=0.99, train_weight
     #             m.requires_grad = train_last
 
     # Get a list of all the parameters of the model
-    parameters = model.parameters()
+    # parameters = model.parameters()
+
+    EPS = 10e-6
+    locked_masks = {n: torch.abs(w) < EPS for n, w in model.named_parameters() if n.endswith('weight')}
+    print(locked_masks)
 
     # Get the weights and biases of the model
     weights = []
     biases = []
-    for p in parameters:
-        if "weight" in p.name:
+    for name, p in model.named_parameters():
+        # print(p)
+        # Split name string by '.' and get the last item
+        # name = name.split(".")[-1]
+        # print(name)
+        if "weight" in name:
             weights.append(p)
-        elif "bias" in p.name:
+            print(p.size())
+            print(locked_masks[name].size())
+        elif "bias" in name:
             biases.append(p)
+
+        
 
     # Get the L1 norm of the weights
     weight_l1 = torch.cat([torch.norm(w, p=1) for w in weights])
