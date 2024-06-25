@@ -36,7 +36,7 @@ if __name__ == "__main__":
 
     #Training transformations
     if cfg["data"]["augment"]:
-        train_transforms = torch_transforms.Compose(base_transforms.extend([
+        base_transforms.extend([
             torch_transforms.RandomHorizontalFlip(p=0.5),
             torch_transforms.RandomRotation(5), #5 degrees +-
             torch_transforms.ColorJitter(
@@ -45,7 +45,9 @@ if __name__ == "__main__":
                 saturation  = 0.0,
                 hue         = 0.0,),
             torch_transforms.RandomInvert(p=0.2),
-        ]))
+            ]
+        )
+        train_transforms = torch_transforms.Compose(base_transforms)
     else:
         train_transforms = torch_transforms.Compose(base_transforms)
 
@@ -169,13 +171,11 @@ if __name__ == "__main__":
     #Plotting for Validation
     if cfg["wandb"]["plotting"]:
         extra_plots = {}
-        from utils.wandb_plots import conf_matrix, conf_matrix_plot
+        from utils.wandb_plots import conf_matrix_plot
         from functools import partial
-        #extra_plots[f"conf"] = conf_matrix
         extra_plots[f"conf_plot"] = conf_matrix_plot
         if 'multilabel' in cfg["data"]["target_format"]:
             for i,c in enumerate(cfg["data"]["classes"]):
-                #extra_plots[f"conf_{c}"] = partial(conf_matrix, idx=i)
                 extra_plots[f"conf_plot_{c}"] = partial(conf_matrix_plot, idx=i)
 
     print("\n########## TRAINING MODEL ##########")
