@@ -1,0 +1,32 @@
+base: "configs/config.yaml"
+
+training:
+  epochs: 5
+  lr: 0.0005
+
+model:
+  exp: "MU02"
+
+data:
+  target_format: "counts"
+  classes:
+  - "human"
+  - "bicycle"
+  - "motorcycle"
+  - "vehicle"
+
+unlearning:
+  method: "sebastian_unlearn"
+  amount: 0.99
+  rand_init: False
+
+wandb:
+  enabled: True
+  tags:
+    - MU
+    - MSE
+    - Human
+    - single_count
+    - sebastian
+    - prune
+    - resilient-tree-3
