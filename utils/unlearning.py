@@ -1,18 +1,26 @@
 import torch
 from torch import nn
 
-import numpy as np
-import sys
 from tqdm import tqdm
+from math import sqrt
 
 
-def confuse_vision(model, noise_scale = 0.1, add_noise = True, trans = True, reinit_last = True, train_dense = True, train_kernel = True, train_bias = True, train_last = True):
+def confuse_vision(model, cfg):
     """ Add Gaussian noise to the conv2d layers of the model.
         - model: a tf model with loaded weights
         - noise_scale: scale of the std of the Gaussian noise
         - trans: transpose kernel of cnn?
         - reinit_last: reinitialize last layer? otherwise add noise
     """
+    noise_scale = cfg["unlearning"]["noise_scale"] 
+    add_noise=cfg["unlearning"]["add_noise"]
+    trans = cfg["unlearning"]["transpose"] 
+    reinit_last = cfg["unlearning"]["reinit_last"]
+    train_dense = cfg["unlearning"]["train_dense"]
+    train_kernel = cfg["unlearning"]["train_kernel"]
+    train_bias = cfg["unlearning"]["train_bias"]
+    train_last = cfg["unlearning"]["train_last"]                
+        
     #Get conv2d layers
     conv_layers = [m for m in model.modules() if isinstance(m, nn.Conv2d)]
     print(f"Adding noise to {len(conv_layers)} convolutional layers")
@@ -35,13 +43,14 @@ def confuse_vision(model, noise_scale = 0.1, add_noise = True, trans = True, rei
                 # print(kernel[j,k,:,:].shape)
                 #Compute noise scale proportional to the std of the kernel
                 if add_noise:
-                    noise_std = torch.std(kernel[j,k,:,:]).item() * noise_scale
-                    # print(noise_std)
-                    if not noise_std > 0:
-                        # print("No noise added")
-                        noise_std = 0.01
+                    # noise_std = torch.std(kernel[j,k,:,:]).item() * noise_scale
+                    # # print(noise_std)
+                    # if not noise_std > 0:
+                    #     # print("No noise added")
+                    #     noise_std = 0.01
+                    noise_std = noise_scale
                     #Add noise
-                    kernel[j,k,:,:] += torch.normal(mean=0, std=noise_std, size=kernel[j,k,:,:].shape, device=kernel.device)
+                    kernel[j,k,:,:] = torch.normal(mean=kernel[j,k,:,:], std=noise_std, size=kernel[j,k,:,:].shape, device=kernel.device)
                     # print(kernel[j,k,:,:])
                     # print(kernel[j,k,:,:].shape)
         #Update kernel
@@ -55,11 +64,12 @@ def confuse_vision(model, noise_scale = 0.1, add_noise = True, trans = True, rei
                 # print(f"Layer {i}: {bias.shape}")
 
                 #Compute noise scale proportional to the std of the bias
-                noise_std = torch.std(bias).item() * noise_scale
-                if not noise_std > 0:
-                    noise_std = 0.01
+                # noise_std = torch.std(bias).item() * noise_scale
+                # if not noise_std > 0:
+                #     noise_std = 0.01
+                noise_std = noise_scale
                 #Add noise
-                bias += torch.normal(mean=0, std=noise_std, size=bias.shape, device=bias.device)
+                bias = torch.normal(mean=bias, std=noise_std, size=bias.shape, device=bias.device)
                 #Update bias
                 conv.bias = nn.Parameter(bias, requires_grad=train_bias)
         # else: 
@@ -94,11 +104,12 @@ def confuse_vision(model, noise_scale = 0.1, add_noise = True, trans = True, rei
                     print(f"Adding noise to last layer: {m}")
                     weight = torch.clone(m.weight)
                     #Compute noise scale proportional to the std of the weight
-                    noise_std = torch.std(weight).item() * noise_scale
-                    if not noise_std > 0:
-                        noise_std = 0.01
+                    # noise_std = torch.std(weight).item() * noise_scale
+                    # if not noise_std > 0:
+                    #     noise_std = 0.01
+                    noise_std = noise_scale
                     #Add weight noise
-                    weight += torch.normal(mean=0, std=noise_std, size=weight.shape, device=weight.device)
+                    weight = torch.normal(mean=weight, std=noise_std, size=weight.shape, device=weight.device)
                     #Update weight
                     m.weight = nn.Parameter(weight, requires_grad=train_last)
 
@@ -106,166 +117,79 @@ def confuse_vision(model, noise_scale = 0.1, add_noise = True, trans = True, rei
                         print("There is bias in last layer")
                         bias = torch.clone(m.bias)
                         #Compute noise scale proportional to the std of the bias
-                        noise_std = torch.std(bias).item() * noise_scale
-                        if not noise_std > 0:
-                            noise_std = 0.01
+                        # noise_std = torch.std(bias).item() * noise_scale
+                        # if not noise_std > 0:
+                        #     noise_std = 0.01
+                        noise_std = noise_scale
                         #Add bias noise
-                        bias += torch.normal(mean=0, std=noise_std, size=bias.shape, device=bias.device)
+                        bias = torch.normal(mean=bias, std=noise_std, size=bias.shape, device=bias.device)
                         #Update weight and bias
                         m.bias = nn.Parameter(bias, requires_grad=train_last)
                 else: 
                     print(f"Last layer is not linear: {m}")
                     raise ValueError("Last layer is not linear")
             
+    return model
 
-    #Check if noise was added correctly debug
-    # conv_layers = [m for m in model.modules() if isinstance(m, nn.Conv2d)]
-    # for i, conv in tqdm(enumerate(conv_layers), total=len(conv_layers)):
-    #     print(conv.weight)
-    #     print(conv.bias)
-    #     if i == 1: 
-    #         break
+
+def prune_reinit(model, cfg):
+    amount = cfg["unlearning"]["amount"],
+    rand_init = cfg["unlearning"]["rand_init"],
+
+    #Modules to prune
+    modules = list()
+    for m in model.modules():
+        if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
+            modules.append((m, "weight"))
+            if m.bias is not None:
+                modules.append((m, "bias"))
+    
+    #Prune criteria
+    nn.utils.prune.global_unstructured(
+        parameters=modules,
+        pruning_method=nn.utils.prune.L1Unstructured,
+        amount=amount,
+    )
+
+    #Perform the pruning
+    for m in model.modules():
+        if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
+            nn.utils.prune.remove(m, "weight")
+            if m.bias is not None:
+                nn.utils.prune.remove(m, "bias")
+    
+    #Reinitialize the pruned weights
+    if rand_init: 
+        for m in model.modules():
+            if isinstance(m, nn.Conv2d):
+                mask = m.weight == 0
+                c_in = mask.shape[1]
+                k = 1 / (c_in * mask.shape[2] * mask.shape[3])
+                randinit = (torch.rand_like(m.weight) - 0.5) * 2 * sqrt(k)
+                m.weight.data[mask] = randinit[mask]
+            if isinstance(m, nn.Linear):
+                mask = m.weight == 0
+                c_in = mask.shape[1]
+                k = 1 / c_in
+                randinit = (torch.rand_like(m.weight) - 0.5) * 2 * sqrt(k)
+                m.weight.data[mask] = randinit[mask]
 
     return model
 
 
-
-def sebastian_unlearn(model, sebastian_type="prune", quantile=0.99, train_bias = True):
-    """ 
-    Forget a class by removing or reinitializing the 99% quantile of the weights and setting the bias to zero.
-    Criteria of removing weights is based on the L1 norm of the weights.
-    """
-    
-    # # Get all the layers of the model
-    # module_list = [module for module in model.modules() if not isinstance(module, nn.Sequential)]
-
-    # # Get a list of all the weights and set the bias to zero
-    # for i, m in enumerate(module_list):
-    #     if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
-    #         # Get the weights
-    #         weight = torch.clone(m.weight)
-    #         # Get the bias
-    #         bias = torch.clone(m.bias)
-    #         # Get the L1 norm of the weights
-    #         weight_l1 = torch.norm(weight, p=1, dim=1)
-    #         # Get the 99% quantile of the L1 norm
-    #         quantile_value = torch.quantile(weight_l1, quantile)
-    #         # Get the indices of the weights that are less than the 99% quantile
-    #         indices = weight_l1 < quantile_value
-    #         # Set the weights to zero
-    #         weight[indices] = torch.zeros_like(weight[indices])
-    #         # Set the bias to zero
-    #         bias = torch.zeros_like(bias)
-    #         # Update the weights and bias
-    #         if isinstance(m, nn.Conv2d):
-    #             m.weight = nn.Parameter(weight, requires_grad=train_kernel)
-    #             m.bias = nn.Parameter(bias, requires_grad=train_bias)
-    #         else:
-    #             m.weight = nn.Parameter(weight, requires_grad=train_dense)
-    #             m.bias = nn.Parameter(bias, requires_grad=train_dense)
-    #         if i == len(module_list) - 1:
-    #             m.requires_grad = train_last
-
-    # Get a list of all the parameters of the model
-    # parameters = model.parameters()
-
-    # EPS = 10e-6
-    # locked_masks = {n: torch.abs(w) < EPS for n, w in model.named_parameters() if n.endswith('weight')}
-    # print(locked_masks)
-
-    # Get the weights and biases of the model
-    weights = []
-    biases = []
-    for name, p in model.named_parameters():
-        # print(p)
-        # Split name string by '.' and get the last item
-        # name = name.split(".")[-1]
-        # print(name)
-        if "weight" in name:
-            weights.append(p)
-        elif "bias" in name:
-            biases.append(p)
-
-        
-
-    # Get the L1 norm of the weights
-    weight_l1 = torch.cat([torch.abs(torch.flatten(w)) for w in weights])
-    # print(weight_l1.size())
-    # Get the 99% quantile of the L1 norm
-    quantile_value = np.quantile(weight_l1.detach().cpu().numpy(), quantile)
-    # print(quantile_value)
-    # Get the indices of the weights that are less than the 99% quantile
-    locked_masks = {n: torch.abs(w) > quantile_value for n, w in model.named_parameters() if n.endswith('weight')}
-    for n, param in model.named_parameters():
-        print(n)
-        if n in locked_masks:
-            if sebastian_type == "prune":
-                # print(f"Pruning {n}")
-                # print(param.data)
-                param.data = param.data * locked_masks[n]
-                param.requires_grad = True
-                # print(param.data)
-                # break
-            elif sebastian_type == "reinitialize":
-                # Reinitialize ONLY MASKED WEIGHTS to xavier uniform
-                # print(f"Reinitializing {n}")
-                # print(param.data)
-                # print(param.data.size())
-                xavier = torch.ones_like(param.data)
-                try:
-                    nn.init.xavier_uniform_(xavier)
-                except:
-                    pass
-                param.data = param.data * locked_masks[n] + xavier * (~locked_masks[n])
-                param.requires_grad = True
-                # print(param.data)
-                
-        if n.endswith('bias'):
-            param.data = torch.zeros_like(param.data, requires_grad=train_bias)
-
-    # indices = weight_l1 < quantile_value
-    # Set the weights to zero
-    # for i in indices:
-    #     weights[i] = nn.Parameter(torch.zeros_like(weights[i]), requires_grad=train_weight)
-    # # Set the biases to zero
-    # for b in biases:
-    #     b = nn.Parameter(torch.zeros_like(b), requires_grad=train_bias)
-    # Update the weights and biases of the model
-    # for i, w in enumerate(weights):
-    #     # Freeze the weigths of the 99% quantile
-    #     if i in indices:
-    #         w = nn.Parameter(w, requires_grad=train_weight)
-    #     else:
-    #         w = nn.Parameter(w, requires_grad=True)
-    # for b in biases:
-    #     b = nn.Parameter(b, requires_grad=train_bias)
-    
-    return model, locked_masks
-    
-
-
-
-
 class ForgetLoss(nn.Module):
-    def __init__(self, class_to_forget, target_format, loss_fn, classes, unlearning_type="skip", unlearning_method="confuse_vision", original=None):
+    def __init__(self, cfg, original=None, lambda_=0.1):
         super(ForgetLoss, self).__init__()
-        self.target_format = target_format
-        self.classes = classes
+        self.target_format=cfg["data"]["target_format"]
 
-        assert unlearning_method in ["confuse_vision", "sebastian_unlearn"], f"UNKNOWN UNLEARNING METHOD: '{unlearning_method}' must be one of the following: 'confuse_vision', 'sebastian_unlearn'"
+        unlearning_method=cfg["unlearning"]["method"]
+        loss_fn=cfg["training"]["loss"]
+
+        #Assert that the unlearning method is valid
+        assert unlearning_method in ["confuse_vision", "sebastian_unlearn", "fine_tune"], f"UNKNOWN UNLEARNING METHOD: '{unlearning_method}' must be one of the following: 'confuse_vision', 'sebastian_unlearn'"
         self.unlearning_method = unlearning_method
 
-        #Assert original is a torch model
-        assert isinstance(original, torch.nn.Module) if unlearning_method == "sebastian_unlearn" else True, f"ORIGINAL: '{original}' must be a torch model"                                                  
-        self.original = original
-        #Freeze original model
-        for param in self.original.parameters():
-            param.requires_grad = False
-
-        if unlearning_type not in ["skip", "zero"]:
-            raise Exception(f"UNKNOWN UNLEARNING TYPE: '{unlearning_type}' must be one of the following: 'skip', 'zero'")
-        self.unlearning_type = unlearning_type
-
+        #Set loss function
         if loss_fn == "huber":
             self.loss_fn = torch.nn.HuberLoss(delta=2.0)
         elif loss_fn == "l1":
@@ -277,13 +201,31 @@ class ForgetLoss(nn.Module):
 
         if "counts" in self.target_format:
             if "multilabel" in self.target_format:
-                self.class_to_forget = class_to_forget
+                #Multi count regression
+                #Assert that the unlearning type is valid
+                unlearning_type=cfg["unlearning"]["type"]
+                assert unlearning_type in ["skip", "zero"], f"UNKNOWN UNLEARNING TYPE: '{unlearning_type}' must be one of the following: 'skip', 'zero'"
+                self.unlearning_type = unlearning_type
+
+                #Assert original is a torch model if using sebastian_unlearn        
+                assert isinstance(original, torch.nn.Module) if unlearning_method == "sebastian_unlearn" else True, f"ORIGINAL: '{original}' must be a torch model"                                                  
+                self.original = original
+                self.lambda_ = lambda_
+                #Freeze original model
+                for param in self.original.parameters():
+                    param.requires_grad = False
+
+                #Set class to forget
+                self.classes=cfg["data"]["classes"]
+                self.class_to_forget=cfg["unlearning"]["class_to_forget"]
                 self.class_to_forget_idx = [i for i, c in enumerate(self.classes) if c == self.class_to_forget]
                 if len(self.class_to_forget_idx) == 0:
-                    raise Exception(f"CLASS TO FORGET: '{class_to_forget}' must be one of the following: {self.classes}")
+                    raise Exception(f"CLASS TO FORGET: '{self.class_to_forget}' must be one of the following: {self.classes}")
                 print(f"Class to forget: {self.class_to_forget}")  
             else:
-                raise Exception(f"MULTILABEL: 'multilabel' must be in the target format")
+                #Single count regression
+                #No need to set class to forget
+                pass
         else:
             raise Exception(f"COUNTS: 'counts' must be in the target format")                                                            
 
@@ -298,13 +240,21 @@ class ForgetLoss(nn.Module):
                 elif self.unlearning_method == "sebastian_unlearn":
                     #Add MSE of entropy regularization
                     regularizer = torch.nn.MSELoss()
-                    
-                    return self.loss_fn(outputs, labels) + regularizer(labels, self.set_unlearn_target(self.original(inputs)))
-
+                    return self.loss_fn(outputs, labels) + self.lambda_ * regularizer(labels, self.set_unlearn_target(self.original(inputs)))
                 else:
-                    raise Exception(f"UNKNOWN UNLEARNING METHOD: '{self.unlearning_method}' must be one of the following: 'confuse_vision', 'sebastian_unlearn'")
-        
+                    #Not implemented error
+                    raise NotImplementedError(f"UNLEARNING METHOD: '{self.unlearning_method}' is not implemented")
+            else:
+                if self.unlearning_method in ["confuse_vision", "sebastian_unlearn", "fine_tune"]:
+                    #Compute loss
+                    return self.loss_fn(outputs, labels) 
+                else:
+                    #Not implemented error
+                    raise NotImplementedError(f"UNLEARNING METHOD: '{self.unlearning_method}' is not implemented")
 
+        else:
+            raise Exception(f"COUNTS: 'counts' must be in the target format")
+                
     def set_unlearn_target(self, tensor):
         if self.unlearning_type == "skip":
             #Skip class to forget
@@ -319,3 +269,4 @@ class ForgetLoss(nn.Module):
         else:
             raise Exception(f"UNKNOWN UNLEARNING TYPE: '{self.unlearning_type}' must be one of the following: 'skip', 'zero'")
         return tensor
+    

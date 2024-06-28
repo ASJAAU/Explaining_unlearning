@@ -35,7 +35,6 @@ unlearning:
   class_to_forget: "human"
   type: "skip"
   method: "sebastian_unlearn"
-  sebastian_type: "reinitialize"
 
 wandb:
   enabled: True
@@ -48,8 +47,7 @@ wandb:
     - '4'
     - resilient-tree-3
     - multi_count
-    - Reinit
-    # - Pruning
+    - Pruning
     # - Finetuning
     # - Trans
     # - Kernel

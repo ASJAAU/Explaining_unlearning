@@ -7,7 +7,7 @@ import numpy as np
 from data.dataloader import REPAIHarborfrontDataset
 from utils.utils import Logger, get_metric
 from utils.utils import existsfolder, get_config
-from utils.unlearning import confuse_vision, sebastian_unlearn, ForgetLoss
+from utils.unlearning import confuse_vision, prune_reinit, ForgetLoss
 
 import torch
 from torch.utils.data import DataLoader
@@ -33,6 +33,8 @@ if __name__ == "__main__":
     parser.add_argument("--verbose", default=False, action='store_true', help="Enable verbose status printing")
     args = parser.parse_args()        
 
+
+
     print("\n########## CLASSIFY-EXPLAIN-REMOVE ##########")
     #Load configs
     cfg = get_config(args.config)
@@ -52,6 +54,7 @@ if __name__ == "__main__":
     ])
 
     
+
     print("\n########## BUILDING MODEL ##########")
     #Define length of output vector
     num_cls = 1 if 'multilabel' not in cfg["data"]["target_format"] else len(cfg["data"]["classes"])
@@ -62,52 +65,41 @@ if __name__ == "__main__":
             in_chans=1, 
             num_classes = num_cls,
             ).to(args.device)
-    unlearned_model = timm.create_model(
-            cfg["model"]["arch"], 
-            pretrained=False, 
-            in_chans=1, 
-            num_classes = num_cls,
-            ).to(args.device)
     
-    #Print model summary
-    # print(model)
-
     #Load weights 
     try:
         model.load_state_dict(torch.load(args.weights))
-        unlearned_model.load_state_dict(torch.load(args.weights))
         print(f"Loaded weights from '{args.weights}'")
 
         #Print model summary
         # print(model)
-
     except:
         raise Exception(f"Failed to load weights from '{args.weights}'")
 
-    # Confuse vision (add Gaussian noise to convolutional kernels)
+    
+
     print("\n########## UNLEARNING ##########")
     if cfg["unlearning"]["method"] == "confuse_vision":
-        unlearned_model = confuse_vision(unlearned_model, 
-                    noise_scale = cfg["unlearning"]["noise_scale"], 
-                    add_noise=cfg["unlearning"]["add_noise"],
-                    trans = cfg["unlearning"]["transpose"], 
-                    reinit_last = cfg["unlearning"]["reinit_last"],
-                    train_dense = cfg["unlearning"]["train_dense"],
-                    train_kernel = cfg["unlearning"]["train_kernel"],
-                    train_bias = cfg["unlearning"]["train_bias"],
-                    train_last = cfg["unlearning"]["train_last"],                
-                    )
+        print("Confusing vision")
+        model = confuse_vision(model, cfg)
     elif cfg["unlearning"]["method"] == "sebastian_unlearn":
+<<<<<<< HEAD:mu_vision_confusion.py
         unlearned_model, locked_masks = sebastian_unlearn(unlearned_model,
                     cfg["unlearning"]["sebastian_type"],
                     train_bias=cfg["unlearning"]["train_bias"],
                     )
+=======
+        print("Pruning or reinitializing")
+        model = prune_reinit(model, cfg)
+    elif cfg["unlearning"]["method"] == "fine_tune":
+        print("Fine tuning")
+>>>>>>> 405e08c24ceded5cb33c1d2b51e227ab152cdc08:mu_train.py
     else:
         raise Exception(f"Unlearning method '{cfg['unlearning']['method']}' not recognized")
-        
-    # print(model)
+
 
     print("\n########## PREPARING DATA ##########")
+
     print("\n### CREATING TRAINING DATASET")
     #initialize training dataset
     train_dataset = REPAIHarborfrontDataset(
@@ -120,20 +112,16 @@ if __name__ == "__main__":
         verbose=args.verbose, #Print status and overview
         )
     
-    #initialize training dataloader
+    #Initialize training dataloader
     print("Creating training dataloader:")
     train_dataloader = DataLoader(
         train_dataset, 
         batch_size=cfg["training"]["batch_size"], 
         shuffle=True
         )
-    #print example batch (sanity check)
-    dummy_sample = next(iter(train_dataloader))
-    print(f"Input Tensor = {dummy_sample[0].shape}")
-    print(f"Label Tensor = {dummy_sample[1].shape}")
     
     print("\n### CREATING VALIDATION DATASET")
-    #initialize training dataset
+    #Initialize training dataset
     valid_dataset = REPAIHarborfrontDataset(
         data_split=cfg["data"]["valid"],
         root=cfg["data"]["root"],
@@ -144,43 +132,26 @@ if __name__ == "__main__":
         verbose=args.verbose, #Print status and overview
         )
     
-    #initialize validation dataloader
+    #Initialize validation dataloader
     print("Creating validation dataloader:")
     valid_dataloader = DataLoader(
         valid_dataset,
         batch_size=cfg["training"]["batch_size"]
         )
-    #print example batch (sanity check)
-    dummy_sample = next(iter(valid_dataloader))
-    print(f"Input Tensor = {dummy_sample[0].shape}")
-    print(f"Label Tensor = {dummy_sample[1].shape}")
 
-    #Define optimizer
-    optimizer= torch.optim.Adam(
-        unlearned_model.parameters(), 
-        lr=cfg["training"]["lr"]
+
+    print("\n########## INITIALIZING TRAINING ##########")
+    #Define optimizer    
+    optimizer = torch.optim.SGD(
+        model.parameters(), 
+        lr=cfg["training"]["lr"],
+        momentum=0.9, 
+        weight_decay=5e-4
         )
 
-    #Define learning-rate schedule
-    lr_schedule = torch.optim.lr_scheduler.LinearLR(
-        optimizer, 
-        start_factor = 1.0, 
-        end_factor = cfg["training"]["lr_decay"], 
-        total_iters=cfg["training"]["epochs"],
-        )
-    
     #Define loss
     print("\n### INITIALIZING LOSS")
-    loss_fn = ForgetLoss(
-        class_to_forget=cfg["unlearning"]["class_to_forget"],
-        target_format=cfg["data"]["target_format"],
-        loss_fn=cfg["training"]["loss"],
-        classes=cfg["data"]["classes"],
-        unlearning_type=cfg["unlearning"]["type"],
-        unlearning_method=cfg["unlearning"]["method"],
-        original=model
-    )
-
+    loss_fn = ForgetLoss(cfg)
 
     #Retrieve metrics for logging 
     print("\n### INITIALIZING METRICS")
@@ -212,7 +183,6 @@ if __name__ == "__main__":
     else: 
         raise Exception(f"Logging for {cfg['data']['target_format']} is improperly retrieved")
 
-
     #Plotting for Validation
     if cfg["wandb"]["plotting"]:
         extra_plots = {}
@@ -226,10 +196,12 @@ if __name__ == "__main__":
                 extra_plots[f"conf_plot_{c}"] = partial(conf_matrix_plot, idx=i)
 
 
+
     print("\n########## TRAINING MODEL ##########")
-    for epoch in tqdm.tqdm(range(cfg["training"]["epochs"]), unit="Epoch", desc="Epochs"):
+    epochs = cfg["training"]["epochs"]
+    for epoch in tqdm.tqdm(range(epochs), unit="Epoch", desc="Epochs"):
         #Train
-        unlearned_model.train()
+        model.train()
         running_loss = 0
         for i, batch in tqdm.tqdm(enumerate(train_dataloader), unit="Batch", desc="Training", leave=False, total=len(train_dataloader)):
             #Reset gradients (redundant but sanity check)
@@ -239,19 +211,22 @@ if __name__ == "__main__":
             inputs, labels = batch
             
             #Forward
-            outputs = unlearned_model(inputs)
+            outputs = model(inputs)
             
             #Calculate loss
             loss = loss_fn(inputs, outputs, labels)
             loss.backward()
             running_loss += loss.item()
 
+<<<<<<< HEAD:mu_vision_confusion.py
             if cfg["unlearning"]["method"] == "sebastian_unlearn" and cfg["unlearning"]["sebastian_type"] == "prune":
                 #Freeze weights
                 for name, param in unlearned_model.named_parameters():
                     if param.grad is not None and name in locked_masks:
                         param.grad[locked_masks[name]] = 0
 
+=======
+>>>>>>> 405e08c24ceded5cb33c1d2b51e227ab152cdc08:mu_train.py
             #Propogate error
             optimizer.step()
 
@@ -269,12 +244,9 @@ if __name__ == "__main__":
                 )
                 running_loss = 0
                 #print(logs)
-        
-        #Step learning rate
-        lr_schedule.step()
 
         #Validate
-        unlearned_model.eval()
+        model.eval()
         running_loss = 0
         logger.clear_buffer()
         for i, batch in tqdm.tqdm(enumerate(valid_dataloader), unit="Batch", desc="Validating", leave=False, total=len(valid_dataloader)):
@@ -282,7 +254,7 @@ if __name__ == "__main__":
             inputs, labels = batch
             
             #Forward
-            outputs = unlearned_model(inputs)
+            outputs = model(inputs)
 
             #Calculate loss
             loss = loss_fn(inputs, outputs, labels)
@@ -302,4 +274,12 @@ if __name__ == "__main__":
         )
 
         #Save Model
-        torch.save(unlearned_model.state_dict(), out_folder + "/weights/" + f'{cfg["model"]["arch"]}-{cfg["model"]["task"]}-Epoch{epoch}.pt')
+        torch.save(model.state_dict(), out_folder + "/weights/" + f'{cfg["model"]["arch"]}-{cfg["model"]["task"]}-Epoch{epoch}.pt')
+
+        #Confuse vision again for the last 2 epochs
+        if cfg["unlearning"]["method"] == "confuse_vision":
+            if epoch == epochs - 3:
+                cfg["unlearning"]["noise_scale"] = cfg["unlearning"]["noise_scale2"]
+                cfg["unlearning"]["trans"] = False
+                cfg["unlearning"]["reinit_last"] = False
+                model = confuse_vision(model, cfg)
