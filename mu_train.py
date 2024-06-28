@@ -83,17 +83,10 @@ if __name__ == "__main__":
         print("Confusing vision")
         model = confuse_vision(model, cfg)
     elif cfg["unlearning"]["method"] == "sebastian_unlearn":
-<<<<<<< HEAD:mu_vision_confusion.py
-        unlearned_model, locked_masks = sebastian_unlearn(unlearned_model,
-                    cfg["unlearning"]["sebastian_type"],
-                    train_bias=cfg["unlearning"]["train_bias"],
-                    )
-=======
         print("Pruning or reinitializing")
         model = prune_reinit(model, cfg)
     elif cfg["unlearning"]["method"] == "fine_tune":
         print("Fine tuning")
->>>>>>> 405e08c24ceded5cb33c1d2b51e227ab152cdc08:mu_train.py
     else:
         raise Exception(f"Unlearning method '{cfg['unlearning']['method']}' not recognized")
 
@@ -218,15 +211,6 @@ if __name__ == "__main__":
             loss.backward()
             running_loss += loss.item()
 
-<<<<<<< HEAD:mu_vision_confusion.py
-            if cfg["unlearning"]["method"] == "sebastian_unlearn" and cfg["unlearning"]["sebastian_type"] == "prune":
-                #Freeze weights
-                for name, param in unlearned_model.named_parameters():
-                    if param.grad is not None and name in locked_masks:
-                        param.grad[locked_masks[name]] = 0
-
-=======
->>>>>>> 405e08c24ceded5cb33c1d2b51e227ab152cdc08:mu_train.py
             #Propogate error
             optimizer.step()
 
@@ -278,7 +262,7 @@ if __name__ == "__main__":
 
         #Confuse vision again for the last 2 epochs
         if cfg["unlearning"]["method"] == "confuse_vision":
-            if epoch == epochs - 3:
+            if epoch == epochs - 2:
                 cfg["unlearning"]["noise_scale"] = cfg["unlearning"]["noise_scale2"]
                 cfg["unlearning"]["trans"] = False
                 cfg["unlearning"]["reinit_last"] = False
