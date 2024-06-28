@@ -169,8 +169,8 @@ def sebastian_unlearn(model, sebastian_type="prune", quantile=0.99, train_bias =
     # Get a list of all the parameters of the model
     # parameters = model.parameters()
 
-    EPS = 10e-6
-    locked_masks = {n: torch.abs(w) < EPS for n, w in model.named_parameters() if n.endswith('weight')}
+    # EPS = 10e-6
+    # locked_masks = {n: torch.abs(w) < EPS for n, w in model.named_parameters() if n.endswith('weight')}
     # print(locked_masks)
 
     # Get the weights and biases of the model
@@ -197,6 +197,7 @@ def sebastian_unlearn(model, sebastian_type="prune", quantile=0.99, train_bias =
     # Get the indices of the weights that are less than the 99% quantile
     locked_masks = {n: torch.abs(w) > quantile_value for n, w in model.named_parameters() if n.endswith('weight')}
     for n, param in model.named_parameters():
+        print(n)
         if n in locked_masks:
             if sebastian_type == "prune":
                 # print(f"Pruning {n}")
@@ -209,8 +210,12 @@ def sebastian_unlearn(model, sebastian_type="prune", quantile=0.99, train_bias =
                 # Reinitialize ONLY MASKED WEIGHTS to xavier uniform
                 # print(f"Reinitializing {n}")
                 # print(param.data)
+                # print(param.data.size())
                 xavier = torch.ones_like(param.data)
-                nn.init.xavier_uniform_(xavier)
+                try:
+                    nn.init.xavier_uniform_(xavier)
+                except:
+                    pass
                 param.data = param.data * locked_masks[n] + xavier * (~locked_masks[n])
                 param.requires_grad = True
                 # print(param.data)

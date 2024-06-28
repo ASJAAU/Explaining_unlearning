@@ -99,6 +99,7 @@ if __name__ == "__main__":
                     )
     elif cfg["unlearning"]["method"] == "sebastian_unlearn":
         unlearned_model, locked_masks = sebastian_unlearn(unlearned_model,
+                    cfg["unlearning"]["sebastian_type"],
                     train_bias=cfg["unlearning"]["train_bias"],
                     )
     else:
@@ -245,7 +246,7 @@ if __name__ == "__main__":
             loss.backward()
             running_loss += loss.item()
 
-            if cfg["unlearning"]["method"] == "sebastian_unlearn":
+            if cfg["unlearning"]["method"] == "sebastian_unlearn" and cfg["unlearning"]["sebastian_type"] == "prune":
                 #Freeze weights
                 for name, param in unlearned_model.named_parameters():
                     if param.grad is not None and name in locked_masks:
@@ -284,7 +285,7 @@ if __name__ == "__main__":
             outputs = unlearned_model(inputs)
 
             #Calculate loss
-            loss = loss_fn(outputs, labels)
+            loss = loss_fn(inputs, outputs, labels)
             running_loss += loss.item() / len(valid_dataloader)
 
             #Log metrics
