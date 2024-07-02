@@ -166,6 +166,8 @@ def sidu(model: torch.nn.Module, layer: torch.nn.Module, image: torch.Tensor, de
             #Generate masks
             masks, grid, cell_size = generate_masks((image.shape[-2],image.shape[-1]), orig_feature_map[i], s=8)
             N = masks.shape[0]
+
+            print(masks.shape, grid.shape, cell_size)
         
             #Predictions (explain_SIDU in original TF)
             preds = []
@@ -173,10 +175,14 @@ def sidu(model: torch.nn.Module, layer: torch.nn.Module, image: torch.Tensor, de
             #Masked batches
             batch_size = 100
 
+            print(f"Inpt image: {image.shape}")
+            #apply masks to all 3 channels (with some channel shuffle)
+            masked = masks.unsqueeze(1) * image
+            print(f"Masks: {masked.shape}")
+
             #Process masked predictions
             for j in tqdm(range(0,N,batch_size), desc="Explaining"):
-                print(masked[j:min(i+batch_size,N)].shape)
-                preds.append(model(masked[j:min(i+batch_size,N)]))
+                preds.append(model(masked[j:min(i+batch_size,N)].to(device)))
             
             #align predictions
             preds = np.concatenate(preds)
