@@ -28,5 +28,4 @@ wandb:
     - Human
     - single_count
     - sebastian
-    - prune
     - resilient-tree-3
