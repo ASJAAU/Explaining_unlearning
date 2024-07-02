@@ -4,10 +4,10 @@ training:
   epochs: 20
   lr: 0.1
   lr_steps: 5000
-  lr_decay: 0.1
-  batch_size: 48
+  lr_decay: 0.01
+  batch_size: 16
   log_freq: 500 #Number of batches
-  loss: "huber"
+  loss: "mse"
 
 evaluation:
   metrics:
@@ -17,7 +17,7 @@ evaluation:
 model:
   arch: "resnet50d" 
   task: "counter"
-  exp: "Baseline01"
+  exp: "Baseline_single_count"
 
 data:
   classes:
@@ -25,9 +25,9 @@ data:
   - "bicycle"
   - "motorcycle"
   - "vehicle"
-  augment: False
+  augment: True
   root: "/Data/Harborfront_raw/"
-  train: "/Data/Harborfront_raw/repai/Train_data.csv"
+  train: "/Data/Harborfront_raw/repai/aug_Train_data.csv"
   valid: "/Data/Harborfront_raw/repai/Valid_data.csv"
   test: "/Data/Harborfront_raw//repai/Test_data.csv"
   target_format: 'counts'
@@ -40,3 +40,4 @@ wandb:
   entity: "repai"
   tags:
     - Baseline
+    - Augmentation

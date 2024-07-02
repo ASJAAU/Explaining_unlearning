@@ -241,7 +241,7 @@ if __name__ == "__main__":
             outputs = model(inputs)
 
             #Calculate loss
-            loss = loss_fn(outputs, labels)
+            loss = loss_fn(inputs, outputs, labels)
             running_loss += loss.item() / len(valid_dataloader)
 
             #Log metrics
@@ -262,7 +262,7 @@ if __name__ == "__main__":
 
         #Confuse vision again for the last 2 epochs
         if cfg["unlearning"]["method"] == "confuse_vision":
-            if epoch == epochs - 3:
+            if epoch == epochs - 2:
                 cfg["unlearning"]["noise_scale"] = cfg["unlearning"]["noise_scale2"]
                 cfg["unlearning"]["trans"] = False
                 cfg["unlearning"]["reinit_last"] = False

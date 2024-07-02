@@ -1,5 +1,6 @@
 import torch
 from torch import nn
+from torch.nn.utils import prune
 
 from tqdm import tqdm
 from math import sqrt
@@ -27,11 +28,11 @@ def confuse_vision(model, cfg):
 
     #Add noise to each kernel
     for i, conv in tqdm(enumerate(conv_layers), total=len(conv_layers)):
-        print(f"Convolution layer {i}: {conv}")
+        # print(f"Convolution layer {i}: {conv}")
 
         #Confusing kernels
         kernel = torch.clone(conv.weight)
-        for j in tqdm(range(kernel.shape[0]), total=kernel.shape[0]):
+        for j in range(kernel.shape[0]):
             for k in range(kernel.shape[1]):
                 # print(f"Layer {i}: Kernel ({j},{k})")
                 # print(kernel[j,k,:,:])
@@ -50,7 +51,7 @@ def confuse_vision(model, cfg):
                     #     noise_std = 0.01
                     noise_std = noise_scale
                     #Add noise
-                    kernel[j,k,:,:] = torch.normal(mean=kernel[j,k,:,:], std=noise_std, size=kernel[j,k,:,:].shape, device=kernel.device)
+                    kernel[j,k,:,:] += torch.normal(mean=0, std=noise_std, size=kernel[j,k,:,:].shape, device=kernel.device)
                     # print(kernel[j,k,:,:])
                     # print(kernel[j,k,:,:].shape)
         #Update kernel
@@ -69,7 +70,7 @@ def confuse_vision(model, cfg):
                 #     noise_std = 0.01
                 noise_std = noise_scale
                 #Add noise
-                bias = torch.normal(mean=bias, std=noise_std, size=bias.shape, device=bias.device)
+                bias += torch.normal(mean=0, std=noise_std, size=bias.shape, device=bias.device)
                 #Update bias
                 conv.bias = nn.Parameter(bias, requires_grad=train_bias)
         # else: 
@@ -109,7 +110,7 @@ def confuse_vision(model, cfg):
                     #     noise_std = 0.01
                     noise_std = noise_scale
                     #Add weight noise
-                    weight = torch.normal(mean=weight, std=noise_std, size=weight.shape, device=weight.device)
+                    weight += torch.normal(mean=0, std=noise_std, size=weight.shape, device=weight.device)
                     #Update weight
                     m.weight = nn.Parameter(weight, requires_grad=train_last)
 
@@ -122,7 +123,7 @@ def confuse_vision(model, cfg):
                         #     noise_std = 0.01
                         noise_std = noise_scale
                         #Add bias noise
-                        bias = torch.normal(mean=bias, std=noise_std, size=bias.shape, device=bias.device)
+                        bias += torch.normal(mean=0, std=noise_std, size=bias.shape, device=bias.device)
                         #Update weight and bias
                         m.bias = nn.Parameter(bias, requires_grad=train_last)
                 else: 
@@ -133,8 +134,12 @@ def confuse_vision(model, cfg):
 
 
 def prune_reinit(model, cfg):
-    amount = cfg["unlearning"]["amount"],
-    rand_init = cfg["unlearning"]["rand_init"],
+    amount = cfg["unlearning"]["amount"]
+    rand_init = cfg["unlearning"]["rand_init"]
+    if rand_init:
+        print("Reinitializing")
+    else:
+        print("Pruning")
 
     #Modules to prune
     modules = list()
@@ -145,18 +150,18 @@ def prune_reinit(model, cfg):
                 modules.append((m, "bias"))
     
     #Prune criteria
-    nn.utils.prune.global_unstructured(
+    prune.global_unstructured(
         parameters=modules,
-        pruning_method=nn.utils.prune.L1Unstructured,
+        pruning_method=prune.L1Unstructured,
         amount=amount,
     )
 
     #Perform the pruning
     for m in model.modules():
         if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
-            nn.utils.prune.remove(m, "weight")
+            prune.remove(m, "weight")
             if m.bias is not None:
-                nn.utils.prune.remove(m, "bias")
+                prune.remove(m, "bias")
     
     #Reinitialize the pruned weights
     if rand_init: 
