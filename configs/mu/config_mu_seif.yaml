@@ -9,12 +9,9 @@ model:
 
 data:
   target_format: "counts"
-  augment: False
+  augment: True
   classes:
   - "human"
-  - "bicycle"
-  - "motorcycle"
-  - "vehicle"
 
 unlearning:
   noise_scale: 0.5

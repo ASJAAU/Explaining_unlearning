@@ -9,11 +9,9 @@ model:
 
 data:
   target_format: "counts"
+  augment: True
   classes:
   - "human"
-  - "bicycle"
-  - "motorcycle"
-  - "vehicle"
 
 unlearning:
   method: "fine_tune"
