@@ -20,7 +20,8 @@ if __name__ == "__main__":
     #Optional
     parser.add_argument("--device", default="cuda:0", help="Which device to prioritize")
     parser.add_argument("--output", default="./explained/", help="Where to save image explinations")
-    parser.add_argument("--show", default=False, help="Whether to show the explination or not")
+    parser.add_argument("--heatmap_only", action="store_true", help="Enable only saving heatmap")
+    parser.add_argument("--show", action="store_true", default=False, help="Enable rendering")
     parser.add_argument("--verbose", default=False, action='store_true', help="Enable verbose status printing")
     args = parser.parse_args()        
 
@@ -73,5 +74,17 @@ if __name__ == "__main__":
         #visualize
         img = visualize_prediction(img, orig_pred, None, [salient_map], blocking=args.show)
 
+        #show?
+        if args.show:
+            img.show(block=True)
+
         #Save output
-        img.savefig(os.path.join(args.output, os.path.basename(img_path)))
+        outpath = os.path.join(args.output, os.path.dirname(img_path))
+        existsfolder(outpath)
+        
+        if args.heatmap_only: #heatmaps only
+            output_filename = os.path.splitext(img_path)[0] + ".npy"
+            np.save(output_filename, salient_map)
+        else: # visualize figure
+            output_filename = os.path.basename(img_path)
+            img.savefig(outpath + output_filename)
