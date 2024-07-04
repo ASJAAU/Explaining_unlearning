@@ -1,7 +1,7 @@
 from matplotlib.pyplot import subplots, show, figure
 import numpy as np
 
-def visualize_prediction(image, predictions=None, groundtruth=None, heatmaps=None, classes=None, blocking=False):
+def visualize_prediction(image, predictions=None, groundtruth=None, heatmaps=None, classes=None):
     #Heatmaps?
     len_heatmaps = len(heatmaps) if heatmaps is not None else 0
     assert len_heatmaps <= len(classes), "Number of heatmaps may not exceed number of class names"
@@ -52,9 +52,6 @@ def visualize_prediction(image, predictions=None, groundtruth=None, heatmaps=Non
             cax = axs[i+1].inset_axes([0.2, -0.04, 0.6, 0.04], transform=axs[i+1].transAxes)
             cax.axis('off')
             #fig.colorbar(hmap, cax=cax, orientation='horizontal')
-
-    #Show figure
-    show(block = blocking)
 
     #Compress padding
     fig.tight_layout()
