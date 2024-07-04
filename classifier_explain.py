@@ -2,7 +2,8 @@ import argparse
 import tqdm
 import timm
 import torch
-
+import matplotlib.pyplot as plt
+import os
 from torchvision.io import read_image
 from torchvision.transforms import v2 as torch_transforms
 from utils.utils import existsfolder, get_config, get_valid_files
@@ -19,6 +20,7 @@ if __name__ == "__main__":
     #Optional
     parser.add_argument("--device", default="cuda:0", help="Which device to prioritize")
     parser.add_argument("--output", default="./explained/", help="Where to save image explinations")
+    parser.add_argument("--show", default=False, help="Whether to show the explination or not")
     parser.add_argument("--verbose", default=False, action='store_true', help="Enable verbose status printing")
     args = parser.parse_args()        
 
@@ -69,4 +71,7 @@ if __name__ == "__main__":
         salient_map = sidu(model, model.layer4[2].act3, input, args.device)
 
         #visualize
-        img = visualize_prediction(img, orig_pred, None, [salient_map])
+        img = visualize_prediction(img, orig_pred, None, [salient_map], blocking=args.show)
+
+        #Save output
+        img.savefig(os.path.join(args.output, os.path.basename(img_path)))
