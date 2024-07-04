@@ -2,8 +2,9 @@ import os
 import yaml
 import numpy as np
 from functools import partial
-import utils.metrics
+import metrics
 import glob
+import pandas as pd
 
 ### GENERAL IO
 def existsfolder(path):
@@ -18,12 +19,10 @@ def get_valid_files(inputs):
         if os.path.isfile(input) and input.endswith(__EXT__):
             images.append(input)
             gts.append(None)
-        # elif os.path.isfile(input) and input.endswith('.csv'):
-        #     split = pd.read_csv(input, sep=";")
-        #     split["label"] = split.apply(lambda x: [1 if int(x[g]) > 0 else 0 for g in args.classes], axis=1)
-        #     split["file_name"] = split.apply(lambda x: os.path.join(args.dataset_root, x["file_name"]), axis=1)
-        #     images.extend(split["file_name"].to_list())
-        #     gts.extend(split["label"].to_list())
+        elif os.path.isfile(input) and input.endswith('.csv'):
+            split = pd.read_csv(input, sep=";")
+            images.extend(split["file_name"].to_list())
+            gts.extend(split["label"].to_list())
         elif os.path.isdir(input):
             for ext in __EXT__:
                 valid_files_in_dir=glob.glob(input + "/*" + ext)
