@@ -1,9 +1,9 @@
 import argparse
-import tqdm
 import timm
 import torch
 import matplotlib.pyplot as plt
 import os
+from tqdm import tqdm
 from torchvision.io import read_image
 from torchvision.transforms import v2 as torch_transforms
 from utils.utils import existsfolder, get_config, get_valid_files
@@ -30,7 +30,7 @@ if __name__ == "__main__":
     cfg = get_config(args.config)
 
     #Get valid input files
-    input_files = get_valid_files(args.input)
+    input_files, gts = get_valid_files(args.input)
 
     # Get training image transforms
     valid_transforms = torch_transforms.Compose([
@@ -59,11 +59,14 @@ if __name__ == "__main__":
     existsfolder(f'{args.output}')
 
     print("\n########## EXPLAINING MODEL ##########")
-    for img_path in tqdm.tqdm(input_files):
+    for i, img_path in tqdm(enumerate(input_files)):
         #Load image
         img = read_image(img_path)
         input = valid_transforms(img)
-        input = input.to(args.device)
+        input = input.to(args.device).unsqueeze(0)
+
+        #get groundtruths (if possible)
+        gt = gts[i]
 
         #initial prediction
         orig_pred = model(input)
@@ -72,7 +75,7 @@ if __name__ == "__main__":
         salient_map = sidu(model, model.layer4[2].act3, input, args.device)
 
         #visualize
-        img = visualize_prediction(img, orig_pred, None, [salient_map], blocking=args.show)
+        img = visualize_prediction(img, orig_pred, gt, [salient_map], blocking=args.show)
 
         #show?
         if args.show:
