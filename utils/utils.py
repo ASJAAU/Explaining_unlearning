@@ -51,7 +51,7 @@ def get_config(path, verbose=False):
 def update_config(base_config, updates):
     new_config = base_config
     for key, value in updates.items():
-        if type(value) == dict:
+        if type(value) == dict and key in new_config.keys():
             new_config[key] = update_config(new_config[key], value)
         else:
             new_config[key] = value

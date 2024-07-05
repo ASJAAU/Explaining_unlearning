@@ -1,0 +1,40 @@
+base: "configs/config.yaml"
+
+training:
+  epochs: 3
+  lr: 0.0005
+
+model:
+  exp: "MU02"
+
+data:
+  target_format: "counts"
+  augment: True
+  classes:
+  - "human"
+
+unlearning:
+  noise_scale: 0.5
+  noise_scale_2: 0.005
+  transpose: True
+  reinit_last: True
+  add_noise: True  
+  train_dense: True
+  train_kernel: True
+  train_bias: True
+  train_last: True
+  method: "confuse_vision"
+
+wandb:
+  enabled: True
+  tags:
+    - MU
+    - MSE
+    - Human
+    - single_count
+    - confusion
+    - Trans
+    - Kernel
+    - Dense
+    - Reinit_last
+    - resilient-tree-3
