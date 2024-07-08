@@ -28,6 +28,8 @@ if __name__ == "__main__":
     #Load configs
     cfg = get_config(args.config)
 
+
+    print("\n########## PREPARING DATA ##########")
     #Setup preprocessing steps
     base_transforms = [
         torch_transforms.ToDtype(torch.float32, scale=True),
@@ -57,7 +59,6 @@ if __name__ == "__main__":
     #Label transformations
     label_transforms  = torch_transforms.Compose([torch_transforms.ToTensor()])
 
-    print("\n########## PREPARING DATA ##########")
     print("\n### CREATING TRAINING DATASET")
     #initialize training dataset
     train_dataset = REPAIHarborfrontDataset(
@@ -118,19 +119,13 @@ if __name__ == "__main__":
             ).to(args.device)
 
     #Define optimizer
-    optimizer= torch.optim.Adam(
-        model.parameters(), 
-        lr=cfg["training"]["lr"]
+    optimizer = torch.optim.SGD(
+        model.parameters(),
+        lr=cfg["training"]["lr"],
+        momentum=0.9,
+        weight_decay=5e-4
         )
 
-    #Define learning-rate schedule
-    lr_schedule = torch.optim.lr_scheduler.LinearLR(
-        optimizer, 
-        start_factor = 1.0, 
-        end_factor = cfg["training"]["lr_decay"], 
-        total_iters=cfg["training"]["epochs"],
-        )
-    
     #Define loss
     if cfg["training"]["loss"] == "huber":
         loss_fn = torch.nn.HuberLoss(delta=2.0)
@@ -152,7 +147,7 @@ if __name__ == "__main__":
     with open(out_folder + "/config.yaml", 'w') as f:
         yaml.dump(cfg, f, default_flow_style=False)
     
-    # Logging
+    #Logging
     if 'counts' in cfg["data"]["target_format"]:
         if 'multilabel' in cfg["data"]["target_format"]:
             logger = Logger(cfg, out_folder=out_folder, metrics=cfg["evaluation"]["metrics"], classwise_metrics=cfg["data"]["classes"])
@@ -184,6 +179,7 @@ if __name__ == "__main__":
         model.train()
         running_loss = 0
         for i, batch in tqdm.tqdm(enumerate(train_dataloader), unit="Batch", desc="Training", leave=False, total=len(train_dataloader)):
+
             #Reset gradients (redundant but sanity check)
             optimizer.zero_grad()
             
@@ -214,38 +210,36 @@ if __name__ == "__main__":
                     },
                 )
                 running_loss = 0
-                #print(logs)
-        
-        #Step learning rate
-        lr_schedule.step()
 
-        #Validate
-        model.eval()
-        running_loss = 0
-        logger.clear_buffer()
-        for i, batch in tqdm.tqdm(enumerate(valid_dataloader), unit="Batch", desc="Validating", leave=False, total=len(valid_dataloader)):
-            #Seperate batch
-            inputs, labels = batch
-            
-            #Forward
-            outputs = model(inputs)
+            #Validation
+            if (i % int(len(train_dataloader)/cfg["evaluation"]["val_per_epoch"])==0 and i > 0) or  i == len(train_dataloader)-1:
+                model.eval()
+                running_loss = 0
+                logger.clear_buffer()
+                for i, batch in tqdm.tqdm(enumerate(valid_dataloader), unit="Batch", desc="Validating", leave=False, total=len(valid_dataloader)):
+                    #Seperate batch
+                    inputs, labels = batch
+                    
+                    #Forward
+                    outputs = model(inputs)
 
-            #Calculate loss
-            loss = loss_fn(outputs, labels)
-            running_loss += loss.item()
+                    #Calculate loss
+                    loss = loss_fn(outputs, labels)
+                    running_loss += loss.item()
 
-            #Log metrics
-            logger.add_prediction(outputs.detach().to("cpu").numpy(), labels.detach().to("cpu").numpy())
+                    #Log metrics
+                    logger.add_prediction(outputs.detach().to("cpu").numpy(), labels.detach().to("cpu").numpy())
 
-        #Check for loggin frequency
-        logs = logger.log(
-            clear_buffer=True,
-            prepend='valid',
-            extras=extra_plots,
-            xargs={
-                "loss": running_loss / len(valid_dataloader)
-            },
-        )
+                #Log validation metrics
+                logs = logger.log(
+                    clear_buffer=True,
+                    prepend='valid',
+                    extras=extra_plots,
+                    xargs={
+                        "loss": running_loss / len(valid_dataloader)
+                    },
+                )
+                model.train()
 
         #Save Model
         torch.save(model.state_dict(), out_folder + "/weights/" + f'{cfg["model"]["arch"]}-{cfg["model"]["task"]}-Epoch{epoch}.pt')
