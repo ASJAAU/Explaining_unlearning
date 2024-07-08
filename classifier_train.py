@@ -227,8 +227,7 @@ if __name__ == "__main__":
                         outputs = model(val_inputs)
 
                         #Calculate loss
-                        loss = loss_fn(outputs, val_labels)
-                        val_loss += loss.item()
+                        val_loss += loss_fn(outputs, val_labels).item()
 
                         #Store prediction
                         val_logger.add_prediction(outputs.detach().to("cpu").numpy(), val_labels.detach().to("cpu").numpy())
@@ -242,6 +241,7 @@ if __name__ == "__main__":
                             "loss": val_loss / len(valid_dataloader)
                         },
                     )
+                    val_loss = 0
 
         #Save Model
         torch.save(model.state_dict(), out_folder + "/weights/" + f'{cfg["model"]["arch"]}-{cfg["model"]["task"]}-Epoch{epoch}.pt')
