@@ -216,7 +216,7 @@ if __name__ == "__main__":
                 model.eval()
                 running_loss = 0
                 logger.clear_buffer()
-                for i, batch in tqdm.tqdm(enumerate(valid_dataloader), unit="Batch", desc="Validating", leave=False, total=len(valid_dataloader)):
+                for j, batch in tqdm.tqdm(enumerate(valid_dataloader), unit="Batch", desc="Validating", leave=False, total=len(valid_dataloader)):
                     #Seperate batch
                     inputs, labels = batch
                     
