@@ -208,7 +208,7 @@ if __name__ == "__main__":
                     clear_buffer=True,
                     prepend='train',
                     xargs={
-                        "loss": running_loss/(cfg["training"]["log_freq"] - (i % cfg["training"]["log_freq"]))
+                        "loss": running_loss/len(train_dataloader)
                     },
                 )
                 running_loss = 0
