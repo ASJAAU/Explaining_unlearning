@@ -212,7 +212,7 @@ if __name__ == "__main__":
                 running_loss = 0
 
             #Validation
-            if (i % int(len(train_dataloader)/cfg["evaluation"]["val_per_epoch"])==0 and i > 0) or  i == len(train_dataloader)-1:
+            if i % int(len(train_dataloader)/cfg["evaluation"]["val_per_epoch"]) == 0 or  i == len(train_dataloader)-1:
                 model.eval()
                 running_loss = 0
                 logger.clear_buffer()
