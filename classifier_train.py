@@ -151,8 +151,10 @@ if __name__ == "__main__":
     if 'counts' in cfg["data"]["target_format"]:
         if 'multilabel' in cfg["data"]["target_format"]:
             logger = Logger(cfg, out_folder=out_folder, metrics=cfg["evaluation"]["metrics"], classwise_metrics=cfg["data"]["classes"])
+            val_logger = Logger(cfg, out_folder=out_folder, metrics=cfg["evaluation"]["metrics"], classwise_metrics=cfg["data"]["classes"])
         else:
             logger = Logger(cfg, out_folder=out_folder, metrics=cfg["evaluation"]["metrics"])
+            val_logger = Logger(cfg, out_folder=out_folder, metrics=cfg["evaluation"]["metrics"])
     elif 'binary' in cfg["data"]["target_format"]:
         if 'multilabel' in cfg["data"]["target_format"]:
             raise NotImplemented
@@ -214,11 +216,11 @@ if __name__ == "__main__":
             #Validation
             if i % int(len(train_dataloader) / cfg["evaluation"]["val_per_epoch"]) == 0 or i == len(train_dataloader)-1:
                 #First empty train buffer
-                logs = logger.log(
+                logs = val_logger.log(
                     clear_buffer=True,
                     prepend='train',
                     xargs={
-                        "loss": running_loss/(cfg["training"]["log_freq"] - (i % cfg["training"]["log_freq"]))
+                        "loss": running_loss/cfg["training"]["log_freq"]
                     },
                 )
                 running_loss = 0
@@ -226,7 +228,7 @@ if __name__ == "__main__":
                 #Proceed to Validation
                 model.eval()
                 val_loss = 0
-                logger.clear_buffer()
+                val_logger.clear_buffer()
                 for j, val_batch in tqdm.tqdm(enumerate(valid_dataloader), unit="Batch", desc="Validating", leave=False, total=len(valid_dataloader)):
                     #Seperate batch
                     val_inputs, val_labels = val_batch
@@ -239,10 +241,10 @@ if __name__ == "__main__":
                     val_loss += loss.item()
 
                     #Log metrics
-                    logger.add_prediction(outputs.detach().to("cpu").numpy(), val_labels.detach().to("cpu").numpy())
+                    val_logger.add_prediction(outputs.detach().to("cpu").numpy(), val_labels.detach().to("cpu").numpy())
 
                 #Log validation metrics
-                logs = logger.log(
+                val_logs = val_logger.log(
                     clear_buffer=True,
                     prepend='valid',
                     extras=extra_plots,
