@@ -87,7 +87,8 @@ if __name__ == "__main__":
         
         if args.heatmap_only: #heatmaps only
             output_filename = os.path.splitext(img_path)[0] + ".npy"
-            np.save(output_filename, salient_map)
+            np.save(outpath + output_filename, salient_map)
         else: # visualize figure
             output_filename = os.path.basename(img_path)
             img.savefig(outpath + output_filename)
+            np.save(outpath + os.path.splitext(img_path)[0] + ".npy", salient_map)
