@@ -212,23 +212,23 @@ if __name__ == "__main__":
                 running_loss = 0
 
             #Validation
-            if i % int(len(train_dataloader)/cfg["evaluation"]["val_per_epoch"]) == 0 or  i == len(train_dataloader)-1:
+            if i % int(len(train_dataloader) / cfg["evaluation"]["val_per_epoch"]) == 0 or i == len(train_dataloader)-1:
                 model.eval()
-                running_loss = 0
+                val_loss = 0
                 logger.clear_buffer()
                 for j, val_batch in tqdm.tqdm(enumerate(valid_dataloader), unit="Batch", desc="Validating", leave=False, total=len(valid_dataloader)):
                     #Seperate batch
-                    inputs, labels = val_batch
+                    val_inputs, val_labels = val_batch
                     
                     #Forward
-                    outputs = model(inputs)
+                    outputs = model(val_inputs)
 
                     #Calculate loss
-                    loss = loss_fn(outputs, labels)
-                    running_loss += loss.item()
+                    loss = loss_fn(outputs, val_labels)
+                    val_loss += loss.item()
 
                     #Log metrics
-                    logger.add_prediction(outputs.detach().to("cpu").numpy(), labels.detach().to("cpu").numpy())
+                    logger.add_prediction(outputs.detach().to("cpu").numpy(), val_labels.detach().to("cpu").numpy())
 
                 #Log validation metrics
                 logs = logger.log(
@@ -236,7 +236,7 @@ if __name__ == "__main__":
                     prepend='valid',
                     extras=extra_plots,
                     xargs={
-                        "loss": running_loss / len(valid_dataloader)
+                        "loss": val_loss / len(valid_dataloader)
                     },
                 )
                 model.train()
