@@ -199,10 +199,10 @@ if __name__ == "__main__":
             #Propogate error
             optimizer.step()
 
-            #logger
+            #Store prediction
             logger.add_prediction(outputs.detach().to("cpu").numpy(), labels.detach().to("cpu").numpy())
 
-            #Check for loggin frequency
+            #Log training stats
             if i % cfg["training"]["log_freq"] == 0:
                 logs = logger.log(
                     clear_buffer=True,
@@ -213,36 +213,35 @@ if __name__ == "__main__":
                 )
                 running_loss = 0
 
-            #Validation
-            if i+1 % int(len(train_dataloader) / cfg["evaluation"]["val_per_epoch"]) == 0 or i == len(train_dataloader)-1:
+            #Log validation stats
+            if i % cfg["evaluation"]["val_freq"] == 0 or i >= len(train_dataloader)-1:
                 #Proceed to Validation
-                model.eval()
-                val_loss = 0
-                val_logger.clear_buffer()
-                for j, val_batch in tqdm.tqdm(enumerate(valid_dataloader), unit="Batch", desc="Validating", leave=False, total=len(valid_dataloader)):
-                    #Seperate batch
-                    val_inputs, val_labels = val_batch
-                    
-                    #Forward
-                    outputs = model(val_inputs)
+                with torch.no_grad():
+                    val_loss = 0
+                    val_logger.clear_buffer()
+                    for j, val_batch in tqdm.tqdm(enumerate(valid_dataloader), unit="Batch", desc="Validating", leave=False, total=len(valid_dataloader)):
+                        #Seperate batch
+                        val_inputs, val_labels = val_batch
+                        
+                        #Forward
+                        outputs = model(val_inputs)
 
-                    #Calculate loss
-                    loss = loss_fn(outputs, val_labels)
-                    val_loss += loss.item()
+                        #Calculate loss
+                        loss = loss_fn(outputs, val_labels)
+                        val_loss += loss.item()
 
-                    #Log metrics
-                    val_logger.add_prediction(outputs.detach().to("cpu").numpy(), val_labels.detach().to("cpu").numpy())
+                        #Store prediction
+                        val_logger.add_prediction(outputs.detach().to("cpu").numpy(), val_labels.detach().to("cpu").numpy())
 
-                #Log validation metrics
-                val_logs = val_logger.log(
-                    clear_buffer=True,
-                    prepend='valid',
-                    extras=extra_plots,
-                    xargs={
-                        "loss": val_loss / len(valid_dataloader)
-                    },
-                )
-                model.train()
+                    #Log validation metrics
+                    val_logs = val_logger.log(
+                        clear_buffer=True,
+                        prepend='valid',
+                        extras=extra_plots,
+                        xargs={
+                            "loss": val_loss / len(valid_dataloader)
+                        },
+                    )
 
         #Save Model
         torch.save(model.state_dict(), out_folder + "/weights/" + f'{cfg["model"]["arch"]}-{cfg["model"]["task"]}-Epoch{epoch}.pt')
