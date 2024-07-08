@@ -206,13 +206,24 @@ if __name__ == "__main__":
                     clear_buffer=True,
                     prepend='train',
                     xargs={
-                        "loss": running_loss/cfg["training"]["log_freq"]
+                        "loss": running_loss/(cfg["training"]["log_freq"] - (i % cfg["training"]["log_freq"]))
                     },
                 )
                 running_loss = 0
 
             #Validation
             if i % int(len(train_dataloader) / cfg["evaluation"]["val_per_epoch"]) == 0 or i == len(train_dataloader)-1:
+                #First empty train buffer
+                logs = logger.log(
+                    clear_buffer=True,
+                    prepend='train',
+                    xargs={
+                        "loss": running_loss/(cfg["training"]["log_freq"] - (i % cfg["training"]["log_freq"]))
+                    },
+                )
+                running_loss = 0
+
+                #Proceed to Validation
                 model.eval()
                 val_loss = 0
                 logger.clear_buffer()
