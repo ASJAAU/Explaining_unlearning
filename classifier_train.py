@@ -214,17 +214,7 @@ if __name__ == "__main__":
                 running_loss = 0
 
             #Validation
-            if i % int(len(train_dataloader) / cfg["evaluation"]["val_per_epoch"]) == 0 or i == len(train_dataloader)-1:
-                #First empty train buffer
-                logs = val_logger.log(
-                    clear_buffer=True,
-                    prepend='train',
-                    xargs={
-                        "loss": running_loss/cfg["training"]["log_freq"]
-                    },
-                )
-                running_loss = 0
-
+            if i+1 % int(len(train_dataloader) / cfg["evaluation"]["val_per_epoch"]) == 0 or i == len(train_dataloader)-1:
                 #Proceed to Validation
                 model.eval()
                 val_loss = 0
