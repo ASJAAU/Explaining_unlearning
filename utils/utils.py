@@ -2,7 +2,7 @@ import os
 import yaml
 import numpy as np
 from functools import partial
-import metrics
+import utils.metrics
 import glob
 import pandas as pd
 
@@ -30,11 +30,13 @@ def get_valid_files(inputs):
                 gts.extend([None] * len(valid_files_in_dir))
         else:
             print(f"Invalid input: '{input}'. Skipping")
+
+    return images, gts
             
 ### CONFIG FILE PARSING
 def get_config(path, verbose=False):
     with open (path, 'r') as f:
-        cfg = yaml.safe_load(f)
+        cfg = yaml.safe_load(f,)
         #If there is a base config
         if os.path.isfile(cfg["base"]):
             print(f"### LOADING BASE CONFIG PARAMETERS ({cfg['base']}) ####")
