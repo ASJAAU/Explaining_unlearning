@@ -15,16 +15,32 @@ from functools import partial
 from utils.utils import get_config, Logger
 import numpy as np
 
+
+__CONFIG__ = "./configs/mu/config_mu_fine.yaml"
+
 class Test_Dataloader(unittest.TestCase):
+    
     def test_dataset(self):
-        dataset = REPAIHarborfrontDataset("data/Test_data.csv", "/Data/Harborfront_raw/", verbose=True)
+        cfg = get_config(__CONFIG__)
+        dataset = REPAIHarborfrontDataset(        
+            data_split=cfg["data"]["test"],
+        root=cfg["data"]["root"],
+        classes=cfg["data"]["classes"],
+        target_format=cfg["data"]["target_format"],
+        verbose=True)
         print(dataset)
         print("------ Dataset overview ------")
         print(dataset.__repr__())
         return True
     
     def test_dataloader(self):
-        dataset = REPAIHarborfrontDataset("data/Test_data.csv", "/Data/Harborfront_raw/")
+        cfg = get_config(__CONFIG__)
+        dataset = REPAIHarborfrontDataset(        
+            data_split=cfg["data"]["test"],
+        root=cfg["data"]["root"],
+        classes=cfg["data"]["classes"],
+        target_format=cfg["data"]["target_format"],
+        verbose=True)
         dataloader = DataLoader(
         dataset, 
         batch_size=12, 
@@ -56,9 +72,10 @@ class Test_Logger(unittest.TestCase):
     def test_LogOutput(self):
         print("Testing ")
         #Retrieve Config
-        config = get_config("./configs/config.yaml")
+        config = get_config(__CONFIG__)
         #Disable logging to WANDB
         config["wandb"]["enabled"] = False
+        print(config)
         #Create logger
         MetricLogger = Logger(config, "./", classwise_metrics=config["data"]["classes"])
         #Create dummy samples

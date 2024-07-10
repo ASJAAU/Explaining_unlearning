@@ -1,8 +1,8 @@
 base: "configs/config.yaml"
 
 training:
-  epochs: 3
-  lr: 0.0005
+  epochs: 5
+  lr: 0.005
 
 model:
   exp: "MU02"
@@ -11,11 +11,13 @@ data:
   target_format: "counts"
   augment: True
   classes:
-  - "human"
+  - "bicycle"
+  - "motorcycle"
+  - "vehicle"
 
 unlearning:
   method: "sebastian_unlearn"
-  amount: 0.99
+  amount: 0.95
   rand_init: False
 
 wandb:
@@ -26,4 +28,5 @@ wandb:
     - Human
     - single_count
     - sebastian
+    - "95"
     - resilient-tree-3

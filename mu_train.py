@@ -277,7 +277,7 @@ if __name__ == "__main__":
 
         #Confuse vision again for the last 2 epochs
         if cfg["unlearning"]["method"] == "confuse_vision":
-            if epoch == epochs - 2:
+            if epoch == epochs - 3:
                 cfg["unlearning"]["noise_scale"] = cfg["unlearning"]["noise_scale2"]
                 cfg["unlearning"]["trans"] = False
                 cfg["unlearning"]["reinit_last"] = False

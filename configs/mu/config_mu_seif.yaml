@@ -1,8 +1,8 @@
 base: "configs/config.yaml"
 
 training:
-  epochs: 3
-  lr: 0.0005
+  epochs: 5
+  lr: 0.005
 
 model:
   exp: "MU02"
@@ -11,11 +11,13 @@ data:
   target_format: "counts"
   augment: True
   classes:
-  - "human"
+  - "bicycle"
+  - "motorcycle"
+  - "vehicle"
 
 unlearning:
   noise_scale: 0.5
-  noise_scale_2: 0.005
+  noise_scale2: 0.005
   transpose: True
   reinit_last: True
   add_noise: True  
