@@ -72,6 +72,15 @@ if __name__ == "__main__":
             num_classes = num_cls,
             ).to(args.device)
     
+    try:
+        model.load_state_dict(torch.load(args.weights))
+        print(f"Loaded weights from '{args.weights}'")
+
+        #Print model summary
+        # print(model)
+    except:
+        raise Exception(f"Failed to load weights from '{args.weights}'")
+
     # Create / check output folder exists
     existsfolder(args.output)
 
@@ -133,5 +142,3 @@ if __name__ == "__main__":
     # Highlight that results are available at url
     if cfg["wandb"]["enabled"]:
         print(f"Logs, metrics and figures available at: {logger.wandb.get_url()}")
-
-
