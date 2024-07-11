@@ -1,7 +1,7 @@
 from matplotlib.pyplot import subplots, show, figure
 import numpy as np
 
-def visualize_prediction(image, predictions, groundtruth=None, heatmaps=None, classes=["human", "bicycle", "motorcycle", "vehicle"]):
+def visualize_prediction(image, predictions=None, groundtruth=None, heatmaps=None, classes=None):
     #Heatmaps?
     len_heatmaps = len(heatmaps) if heatmaps is not None else 0
     assert len_heatmaps <= len(classes), "Number of heatmaps may not exceed number of class names"
@@ -18,10 +18,17 @@ def visualize_prediction(image, predictions, groundtruth=None, heatmaps=None, cl
         axs.imshow(image)
         axs.set_title("Input Image")
 
-        #Prediction
-        text = [f"{classes[i]} - pred:{round(float(predictions[i]),2)} gt: {groundtruth[i] if groundtruth is not None else ''}\n" for i in range(len(predictions))]
-        props = dict(boxstyle='round', facecolor='wheat', alpha=0.8)
-        axs.text(0.05, 0.95, "".join(text), transform=axs.transAxes, fontsize=12, verticalalignment='top', bbox=props)
+        if predictions is not None:
+            #Check if class names exist
+            if classes is None:
+                classes = [f'{i}' for i in range(len(predictions))]
+            else:
+                assert len(predictions) <= len(classes), "The length of 'classes' argument needs to be equal or larger than length of predictions"
+
+            #Write prediction
+            text = [f"{classes[i]} - pred:{round(float(predictions[i]),2)} gt: {groundtruth[i] if groundtruth is not None else ''}\n" for i in range(len(predictions))]
+            props = dict(boxstyle='round', facecolor='wheat', alpha=0.8)
+            axs.text(0.05, 0.95, "".join(text), transform=axs.transAxes, fontsize=12, verticalalignment='top', bbox=props)
     else:
         #Remove image ticks
         axs[0].axis('off')
@@ -29,12 +36,6 @@ def visualize_prediction(image, predictions, groundtruth=None, heatmaps=None, cl
         #Original image
         axs[0].imshow(image)
         axs[0].set_title("Input Image")
-
-        #Prediction
-        #text = [f"{classes[i]} - pred:{round(float(predictions[i]),2)} gt: {groundtruth[i] if groundtruth is not None else ''}\n" for i in range(len(predictions))]
-        #props = dict(boxstyle='round', facecolor='wheat', alpha=0.8)
-        #axs[0].text(0.01, 0.99, "".join(text), transform=axs[0].transAxes, fontsize=12, verticalalignment='top', bbox=props)
-   
 
     #Visualize heatmaps
     print(f"LENGTH : {len_heatmaps}")
@@ -46,14 +47,11 @@ def visualize_prediction(image, predictions, groundtruth=None, heatmaps=None, cl
             axs[i+1].set_title(f"Heatmap: {classes[i]}")
             axs[i+1].imshow(image, aspect='equal')
             #Set heatmap
-            hmap = axs[i+1].imshow(np.squeeze(heatmaps[i]), cmap='jet_r', alpha=0.5)
+            hmap = axs[i+1].imshow(np.squeeze(heatmaps[i]), cmap='jet', alpha=0.5)
             #Plot Colorbar / colormap
             cax = axs[i+1].inset_axes([0.2, -0.04, 0.6, 0.04], transform=axs[i+1].transAxes)
             cax.axis('off')
             #fig.colorbar(hmap, cax=cax, orientation='horizontal')
-
-    #Show figure
-    show()
 
     #Compress padding
     fig.tight_layout()

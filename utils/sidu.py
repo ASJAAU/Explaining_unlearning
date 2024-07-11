@@ -8,7 +8,7 @@ import torchvision
 import numpy as np
 from tqdm import tqdm
 
-def kernel(vector: torch.Tensor, kernel_width: float = 0.1) -> torch.Tensor:
+def kernel(vector: torch.Tensor, kernel_width: float = 0.25) -> torch.Tensor:
     """
     Kernel function for computing the weights of the differences.
 
@@ -53,7 +53,7 @@ def uniqness_measure(masked_predictions: torch.Tensor) -> torch.Tensor:
     distances = torch.cdist(masked_predictions, masked_predictions)
 
     # Compute sum along the last two dimensions to get uniqueness measure for each mask
-    uniqueness = distances.sum(dim=-1)
+    uniqueness = normalize(distances.sum(dim=-1))
 
     return uniqueness
 
@@ -72,13 +72,9 @@ def similarity_differences(orig_predictions: torch.Tensor, masked_predictions: t
         diff: torch.Tensor
             The differences
     """
-    diff = abs(masked_predictions - orig_predictions)
-    # compute the average of the differences, from (batch, num_masks, num_features, w, h) -> (batch, num_masks, w, h)
-    diff = diff.mean(dim=2)
-    weighted_diff = kernel(diff)
-    # compute the average of the weights, from (batch, num_masks, w, h) -> (batch, num_masks)
-    weighted_diff = weighted_diff.mean(dim=(2, 3))
-    return weighted_diff, diff
+    diff = abs(masked_predictions - orig_predictions).mean(axis=1)
+    weights = kernel(diff)
+    return weights, diff
 
 def generate_masks(img_size: tuple, feature_map: torch.Tensor, s: int = 8) -> torch.Tensor:
     r""" Generate masks from the feature map
@@ -95,10 +91,8 @@ def generate_masks(img_size: tuple, feature_map: torch.Tensor, s: int = 8) -> to
         masks: torch.Tensor
             The generated masks
     """
-    h, w = img_size
     cell_size = np.ceil(np.array(img_size) / s)
 
-    #Rotate axis to [C,H,W]
     grid = feature_map.detach().clone()
     N = feature_map.shape[0]
 
@@ -121,7 +115,7 @@ def get_intermediate_output(name):
         activation[name] = output.detach()
     return hook
 
-def sidu(model: torch.nn.Module, layer: torch.nn.Module, image: torch.Tensor, device: torch.device = torch.device("cpu")) -> torch.Tensor:
+def sidu(model: torch.nn.Module, layer: torch.nn.Module, input: torch.Tensor, device: torch.device = torch.device("cpu")) -> torch.Tensor:
     r""" SIDU SImilarity Difference and Uniqueness method
     Note: The original implementation processes B,H,W,C as per TF standard, where Torch uses BCHW
     
@@ -142,8 +136,9 @@ def sidu(model: torch.nn.Module, layer: torch.nn.Module, image: torch.Tensor, de
 
     """
     
-    # Storage
+    # Storage for return values
     maps = []
+    predictions = []
 
     #Hook to catch intermediate representation
     intermediates = {}
@@ -156,76 +151,62 @@ def sidu(model: torch.nn.Module, layer: torch.nn.Module, image: torch.Tensor, de
     #Disable AutoGrad
     with torch.no_grad():
         #Forward pass to extract base predictions and intermediary featuremaps
-        orig_predictions = model(image)
+        orig_predictions = model(input)
+        predictions.append(orig_predictions.detach().numpy())
         orig_feature_map = intermediates["repr"].detach().clone()
 
         # #Iterate over the batch dimension
-        for i in range(image.shape[0]):
-            #Note torch.movedim(orig_feature_map[i],0,2) is used to change to BHW, to retain original TF code structure
+        for i in tqdm(range(input.shape[0]), desc="Processing sample"):
 
             #Generate masks
-            masks, grid, cell_size = generate_masks((image.shape[-2],image.shape[-1]), orig_feature_map[i], s=8)
+            masks, grid, cell_size = generate_masks((input.shape[-2],input.shape[-1]), orig_feature_map[i], s=8)
             N = masks.shape[0]
         
             #Predictions (explain_SIDU in original TF)
-            preds = []
+            masked_predictions = []
 
             #Masked batches
             batch_size = 100
 
+            #apply masks to all 3 channels (with some channel shuffle)
+            masked = masks.unsqueeze(1) * input
+
             #Process masked predictions
             for j in tqdm(range(0,N,batch_size), desc="Explaining"):
-                print(masked[j:min(i+batch_size,N)].shape)
-                preds.append(model(masked[j:min(i+batch_size,N)]))
+                masked_predictions.append(model(masked[j:min(j+batch_size,N)].float()))
             
             #align predictions
-            preds = np.concatenate(preds)
-            print(f'Preds: {preds.shape}')
+            masked_predictions = torch.Tensor(np.concatenate(masked_predictions, axis=0)).double()
 
             #Compute weights and differences
-            weights, diff = similarity_differences(orig_predictions[i], preds)
+            weights, diff = similarity_differences(orig_predictions[i],masked_predictions)
 
-
-
-        #     # Repeat the masks 3 times along the channel dimension to match the number of channels of the image and masks
-        #     masks = masks.unsqueeze(2).repeat(1, 1, 3, 1, 1)
-        #     images = image.unsqueeze(1).repeat(1, num_masks, 1, 1, 1)
-        #     masked_images = images * masks
-
-        #     # Compute masked featuremaps
-        #     masked_feature_map = []
-        #     for i in range(num_masks):
-        #         masked_feature_map.append(model(masked_images[:, i, :, :, :])['target_layer'])
-        #     masked_feature_map = torch.stack(masked_feature_map, dim=1) # TODO speed up this part
+            #Compute uniqueness to infer sample uniqueness
+            uniqueness = uniqness_measure(masked_predictions)
             
-        #     orig_feature_map[i] = orig_feature_map[i].unsqueeze(1).repeat(1, num_masks, 1, 1, 1)
+            #Apply weight to uniqueness
+            weighted_uniqueness = uniqueness * weights
 
-        #     # compute the differences of the similarity and the uniqueness
-        #     weighted_diff, difference = similarity_differences(orig_feature_map[i], masked_feature_map)
-        #     uniqness = uniqness_measure(masked_feature_map)
+            #Generated weighted saliency map
+            saliency_map = masks * weighted_uniqueness.unsqueeze(dim=-1). unsqueeze(dim=-1)
 
-        #     # compute SIDU
-        #     sidu = weighted_diff * uniqness
+            # reduce the saliency maps to a single map by summing over the masks dimension
+            saliency_map = saliency_map.sum(dim=0)
+            saliency_map /= N
 
-        #     # reduce the masks size by removing the channel dimension (batch, num_masks, 3, w, h) -> (batch, num_masks, 1, w, h)
-        #     masks = masks.mean(dim=2, keepdim=True)
-        #     masks = masks.squeeze(2)
+            #Add to list of maps
+            maps.append(saliency_map.numpy())
 
-        #     # compute saliency maps by averaging the masks weighted by the SIDU
-        #     # each mask of masks (batch, num_masks, w, h) must be multiplied by the SIDU (batch, num_masks)
-        #     saliency_maps = masks * sidu.unsqueeze(2).unsqueeze(3)
-
-        #     # reduce the saliency maps to a single map by summing over the masks dimension
-        #     saliency_maps = saliency_maps.sum(dim=1)
-        #     saliency_maps /= num_masks
-
-        return maps
+    #Return entire batch
+    return predictions, maps
+  
     
 if __name__ == '__main__':
     import torch
     import timm
     from torchvision.transforms import v2 as torch_transforms
     from torchvision.io import read_image
+    from visualize import visualize_prediction
 
     # Get training image transforms
     valid_transforms = torch_transforms.Compose([
@@ -234,14 +215,21 @@ if __name__ == '__main__':
         torch_transforms.ToTensor(),
     ])
 
-    img_path = "data/sidu_test.jpg"
-    #Load image
-    img = read_image(img_path)
-    input = valid_transforms(img)
-    input = input.unsqueeze(0)
+    img_paths = ["H:/Work\REPAI/Explaining_unlearning/data/sidu_test.jpg"]
+
+    #Load image / images    
+    input = [read_image(img_path) for img_path in img_paths]
+
+    #Preprocess images
+    input = [valid_transforms(img) for img in input]
+    input = torch.stack(input, dim=0)
 
     #Load Pretrained model
     model = timm.create_model("resnet50d", pretrained=True,)
 
     # Generate SIDU Heatmaps
-    heatmaps = sidu(model, layer=model.layer4[2].act3, image=input)
+    predictions, heatmaps = sidu(model, layer=model.layer4[2].act3, input=input)
+
+    #Show prediction
+    for i in range(input.shape[0]):
+        visualize_prediction(input[i].permute(1, 2, 0).numpy(), None, None, [heatmaps[i]], classes=["All"], blocking=True)

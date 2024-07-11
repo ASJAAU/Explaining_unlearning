@@ -1,8 +1,9 @@
 import argparse
-import tqdm
 import timm
 import torch
-
+import matplotlib.pyplot as plt
+import os
+from tqdm import tqdm
 from torchvision.io import read_image
 from torchvision.transforms import v2 as torch_transforms
 from utils.utils import existsfolder, get_config, get_valid_files
@@ -19,6 +20,8 @@ if __name__ == "__main__":
     #Optional
     parser.add_argument("--device", default="cuda:0", help="Which device to prioritize")
     parser.add_argument("--output", default="./explained/", help="Where to save image explinations")
+    parser.add_argument("--heatmap_only", action="store_true", help="Enable only saving heatmap")
+    parser.add_argument("--show", action="store_true", default=False, help="Enable rendering")
     parser.add_argument("--verbose", default=False, action='store_true', help="Enable verbose status printing")
     args = parser.parse_args()        
 
@@ -27,7 +30,7 @@ if __name__ == "__main__":
     cfg = get_config(args.config)
 
     #Get valid input files
-    input_files = get_valid_files(args.input)
+    input_files, gts = get_valid_files(args.input)
 
     # Get training image transforms
     valid_transforms = torch_transforms.Compose([
@@ -56,11 +59,14 @@ if __name__ == "__main__":
     existsfolder(f'{args.output}')
 
     print("\n########## EXPLAINING MODEL ##########")
-    for img_path in tqdm.tqdm(input_files):
+    for i, img_path in tqdm(enumerate(input_files)):
         #Load image
         img = read_image(img_path)
         input = valid_transforms(img)
-        input = input.to(args.device)
+        input = input.to(args.device).unsqueeze(0)
+
+        #get groundtruths (if possible)
+        gt = gts[i]
 
         #initial prediction
         orig_pred = model(input)
@@ -69,4 +75,20 @@ if __name__ == "__main__":
         salient_map = sidu(model, model.layer4[2].act3, input, args.device)
 
         #visualize
-        img = visualize_prediction(img, orig_pred, None, [salient_map])
+        img = visualize_prediction(img, orig_pred, gt, [salient_map], blocking=args.show)
+
+        #show?
+        if args.show:
+            img.show(block=True)
+
+        #Save output
+        outpath = os.path.join(args.output, os.path.dirname(img_path))
+        existsfolder(outpath)
+        
+        if args.heatmap_only: #heatmaps only
+            output_filename = os.path.splitext(img_path)[0] + ".npy"
+            np.save(outpath + output_filename, salient_map)
+        else: # visualize figure
+            output_filename = os.path.basename(img_path)
+            img.savefig(outpath + output_filename)
+            np.save(outpath + os.path.splitext(img_path)[0] + ".npy", salient_map)
