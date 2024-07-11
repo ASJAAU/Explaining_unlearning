@@ -81,6 +81,7 @@ def generate_unique_image_id(dateobj,clipname):
         f'{dateobj.minute}'.zfill(2)+
         f'{dateobj.second}'.zfill(2))
 
+
 ANNO_CATEGORIES = {
     "human"      : 0,
     "bicycle"    : 1,
@@ -88,7 +89,7 @@ ANNO_CATEGORIES = {
     "vehicle"    : 3,}
 
 if __name__ == "__main__":
-    parser  = argparse.ArgumentParser("Generate MY/XAI CSV from Harborfront txt")
+    parser  = argparse.ArgumentParser("Generate XAI/MU CSV from Harborfront txt")
     
     #REQUIRED
     parser.add_argument('root', help="Path to the Harborfront Root Directory")
@@ -136,7 +137,6 @@ if __name__ == "__main__":
         for date in tqdm(data[split].keys(), "Processsing Date"):
             for clip in data[split][date]:
                 if args.meta_file is not None:
-
                     #Get Meta Data
                     img_meta_data = meta_df.loc[(meta_df['Clip Name'] == clip) & (meta_df['Folder name'] == int(date))].to_dict("records")[0]
 
@@ -144,33 +144,28 @@ if __name__ == "__main__":
                     for ex in ['Folder name', 'Clip Name', 'DateTime']:
                         del img_meta_data[ex]
                 
-                #Iterate over frames in current clip
+                #Parse candidate frames
+                candidates = []
+                #loadframes
                 for frame in os.listdir(os.path.join(args.root, args.img_folder, date, clip)):
-                    
                     #Get frame number
                     frame_number = frame.rsplit('.', 1)[0].rsplit('_')[1]
-                    
+                        
                     #Make file_paths
                     img_path = os.path.join(args.root, args.img_folder, date, clip, "image_{}.jpg".format(frame_number))
                     ann_path = os.path.join(args.root, args.ann_folder, date, clip, "annotations_{}.txt".format(frame_number))
-                    
+                        
                     #Load annotations
                     sample_name = "{}_{}_{}".format(date, clip, frame_number)
                     annots = load_annotations(sample_name, img_path, ann_path)
 
                     #Create image and annotation entries
                     img_entry = {
-                        #"license": 0,
                         "file_name": os.path.join(args.img_folder, date, clip, "image_{}.jpg".format(frame_number)),
-                        #"coco_url": "N/A",
-                        #"height": 288,
-                        #"width": 384,
                         "date_captured": annots["timestamp"].isoformat(),
-                        #"flickr_url": "N/A",
-                        #"id": frame_idx,
                         "id": generate_unique_image_id(annots["timestamp"], clip)
                     }
-                    
+                        
                     #Append metadata
                     if args.meta_file is not None:
                         img_entry["meta"] = img_meta_data
@@ -179,7 +174,6 @@ if __name__ == "__main__":
                     for key in ANNO_CATEGORIES.keys():
                         img_entry[key] = 0
                         img_entry[f"{key}_centers"] = []
-                    #img_entry["background"] = 0
 
                     #Process annotations
                     if len(annots["labels"]) >= 1:
@@ -188,10 +182,18 @@ if __name__ == "__main__":
                             img_entry[annots["labels"][i]] += 1
                             #List Centers
                             img_entry[f'{annots["labels"][i]}_centers'].append(annots["centers"][i])
-                    
+                        
                     #Append to dataset dict
-                    samples.append(img_entry)
+                    candidates.append(img_entry)
+                
+                #Rank diversity of samples
+                candidates = pd.DataFrame(candidates)
+                candidates['score'] = candidates[ANNO_CATEGORIES.keys()].gt(0).sum(axis=1)
+                candidates = candidates.sort_values(by=['score', 'id'], ascending=False)
+                samples.append(candidates.to_dict('records')[0])
+
+
 
         #Turn into pandas dataframe
         dt = pd.DataFrame(samples)
-        dt.to_csv(f'{args.output}/{split}_data.csv',";")
+        dt.to_csv(f'{args.output}/{split}_data_reduced.csv',";")
