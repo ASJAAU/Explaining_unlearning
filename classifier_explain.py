@@ -1,14 +1,21 @@
 import argparse
 import timm
 import torch
-import matplotlib.pyplot as plt
 import os
+import numpy as np
 from tqdm import tqdm
+import csv
+import matplotlib.pyplot as plt
+from collections import defaultdict
+
 from torchvision.io import read_image
+from torch.utils.data import DataLoader
 from torchvision.transforms import v2 as torch_transforms
-from utils.utils import existsfolder, get_config, get_valid_files
+
+from utils.utils import existsfolder, get_config, get_valid_files, Logger
 from utils.sidu import *
-from utils.visualize import visualize_prediction
+from utils.visualize import visualize_prediction, visualize_heatmap
+from data.dataloader import REPAIHarborfrontDataset
 
 if __name__ == "__main__":
     #CLI
@@ -16,30 +23,44 @@ if __name__ == "__main__":
     #Positionals
     parser.add_argument("config", type=str, help="Path to config file (YAML)")
     parser.add_argument("weights", type=str, help="Path to the model weight file")
-    parser.add_argument("input", type=str, nargs= '+', help="Path to files/folders to run inference on")
     #Optional
+    parser.add_argument("--split", default="test", help="Which datasplit to use", choices=["train","test","valid"])
     parser.add_argument("--device", default="cuda:0", help="Which device to prioritize")
     parser.add_argument("--output", default="./explained/", help="Where to save image explinations")
-    parser.add_argument("--heatmap_only", action="store_true", help="Enable only saving heatmap")
-    parser.add_argument("--show", action="store_true", default=False, help="Enable rendering")
+    parser.add_argument("--heatmap", action="store_true", help="Enable only saving heatmap")
+    parser.add_argument("--visualization", action="store_true", help="Enable Matplotlib Visualization")
+    parser.add_argument("--mask", action="store_true", help="Calculate heatmap coverage")
+    parser.add_argument("--colormap", default='jet', help="Which Matplotlib Colormap to use")
+    parser.add_argument("--show", action="store_true", help="Enable rendering the visualization on screen")
     parser.add_argument("--verbose", default=False, action='store_true', help="Enable verbose status printing")
     args = parser.parse_args()        
 
-    print("\n########## classify-EXPLAIN-remove ##########")
-    #Load configs
+    print("\n########## CLASSIFY-EXPLAIN-REMOVE ##########")
+    # Load configs
     cfg = get_config(args.config)
 
-    #Get valid input files
-    input_files, gts = get_valid_files(args.input)
-
-    # Get training image transforms
-    valid_transforms = torch_transforms.Compose([
+    # Setup preprocessing steps
+    test_transforms = torch_transforms.Compose([
         torch_transforms.ToDtype(torch.float32, scale=True),
         torch_transforms.ToTensor(),
     ])
+
+    print("\n########## PREPARING DATA ##########")
+    print("\n### LOADING TEST DATASET")
+    # initialize training dataset
+    test_dataset = REPAIHarborfrontDataset(
+        data_split=cfg["data"][args.split],
+        root=cfg["data"]["root"],
+        classes=cfg["data"]["classes"],
+        transform=test_transforms,
+        target_format=cfg["data"]["target_format"],
+        device=args.device,
+        verbose=args.verbose, #Print status and overview
+        )
     
+
     print("\n########## BUILDING MODEL ##########")
-    #Load model
+    # Define length of output vector
     num_cls = 1 if 'multilabel' not in cfg["data"]["target_format"] else len(cfg["data"]["classes"])
     model = timm.create_model(
             cfg["model"]["arch"], 
@@ -47,48 +68,74 @@ if __name__ == "__main__":
             in_chans=1, 
             num_classes = num_cls,
             ).to(args.device)
+    
+    try:
+        model.load_state_dict(torch.load(args.weights))
+        print(f"Loaded weights from '{args.weights}'")
 
-    #Load model weights
-    model.load_state_dict(torch.load(args.weights))
-
-    #Prime model
-    model.eval()
-    model.to(args.device)
-
-    #Create output folder
-    existsfolder(f'{args.output}')
+        #Print model summary
+        # print(model)
+    except:
+        raise Exception(f"Failed to load weights from '{args.weights}'")
+    
+    # Create / check output folder exists
+    existsfolder(args.output)
+    input_files = list(test_dataset.images)
+    gts = list(test_dataset.labels)
 
     print("\n########## EXPLAINING MODEL ##########")
-    for i, img_path in tqdm(enumerate(input_files)):
-        #Load image
-        img = read_image(img_path)
-        input = valid_transforms(img)
-        input = input.to(args.device).unsqueeze(0)
+    batch_size = 2
+    for i in tqdm(range(0, len(input_files), batch_size)):
+        #Load images
+        file_paths = input_files[i:min(i+batch_size,len(input_files))] 
+        imgs = [read_image(img_path) for img_path in file_paths]
+        input = [test_transforms(img) for img in imgs]
+        input = torch.stack(input, dim=0)
+        input = input.to(args.device)
 
         #get groundtruths (if possible)
-        gt = gts[i]
-
-        #initial prediction
-        orig_pred = model(input)
+        gt = gts[i:min(i+batch_size,len(input_files))]
 
         #Explain
-        salient_map = sidu(model, model.layer4[2].act3, input, args.device)
+        predictions, salient_map = sidu(model, model.layer4[2].act3, input, args.device)
+        for j in range(len(imgs)):
+            #visualize
+            if args.visualization:
+                outpath = os.path.join(args.output + "/visualize/", os.path.dirname(file_paths[j].replace(test_dataset.root, "")))
+                existsfolder(outpath)
+                im = visualize_prediction(imgs[j].squeeze(0), predictions[j], gt[j], [salient_map[j]], cmap=args.colormap)
+                output_filename = os.path.basename(file_paths[j])
+                im.savefig(outpath + "/" + output_filename)
 
-        #visualize
-        img = visualize_prediction(img, orig_pred, gt, [salient_map], blocking=args.show)
+            if args.heatmap: #heatmaps only
+                outpath = os.path.join(args.output + "/heatmap/", os.path.dirname(file_paths[j].replace(test_dataset.root, "")))
+                existsfolder(outpath)
+                im = visualize_heatmap(imgs[j].squeeze(0), salient_map[j], cmap=args.colormap)
+                output_filename = os.path.splitext(os.path.basename(file_paths[j]))[0] + ".npy"
+                np.save(outpath + "/" + output_filename, salient_map)
 
-        #show?
-        if args.show:
-            img.show(block=True)
+            if args.mask:
+                outpath = os.path.join(args.output+"/mask/", os.path.dirname(file_paths[j].replace(test_dataset.root, "")))
+                existsfolder(outpath)
+                masks = {}
+                for kname in ["human", "bicycle", "vehicle", "motorcycle"]:
+                    masks[kname] = np.zeros_like(imgs[j].squeeze(0)).astype(np.uint8)
+                #Load annotation
+                with open(os.path.join(test_dataset.root, file_paths[j].replace("frames/","annotations/").replace("image","annotations").replace("jpg","txt")), 'r') as f:
+                    reader = csv.reader(f, delimiter=" ")
+                    for row in reader:
+                        if row != ''.join(row).strip(): #ignore empty annotations
+                            #Get class name
+                            cls_name = row[1]
+                            #Get object boundingbox
+                            bbox = [int(row[2]), int(row[3]), int(row[4]), int(row[5])]
+                            #Draw boundingbox on mask
+                            masks[cls_name][bbox[1]:bbox[3], bbox[0]:bbox[2]] = 255
+                #save all the masks
+                for key, value in masks.items():
+                    output_filename = os.path.splitext(os.path.basename(file_paths[j]))[0] + f"_{key}.npy"
+                    np.save(outpath + "/" + output_filename, value)
+                    plt.imsave(outpath + "/" + output_filename[:-3]+"jpg", value, cmap="gray")
 
-        #Save output
-        outpath = os.path.join(args.output, os.path.dirname(img_path))
-        existsfolder(outpath)
-        
-        if args.heatmap_only: #heatmaps only
-            output_filename = os.path.splitext(img_path)[0] + ".npy"
-            np.save(outpath + output_filename, salient_map)
-        else: # visualize figure
-            output_filename = os.path.basename(img_path)
-            img.savefig(outpath + output_filename)
-            np.save(outpath + os.path.splitext(img_path)[0] + ".npy", salient_map)
+                #Close any MPL renderers
+                plt.close('all')
