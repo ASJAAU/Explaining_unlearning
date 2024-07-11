@@ -1,11 +1,11 @@
 base: "configs/config.yaml"
 
 training:
-  epochs: 5
+  epochs: 3
   lr: 0.005
 
 model:
-  exp: "MU02"
+  exp: "MU03"
 
 data:
   target_format: "counts"
@@ -17,7 +17,7 @@ data:
 
 unlearning:
   method: "sebastian_unlearn"
-  amount: 0.95
+  amount: 0.99
   rand_init: False
 
 wandb:
@@ -28,5 +28,5 @@ wandb:
     - Human
     - single_count
     - sebastian
-    - "95"
-    - resilient-tree-3
+    - "99"
+    - leafy-darkness-85

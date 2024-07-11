@@ -1,7 +1,7 @@
 base: "configs/config.yaml"
 
 training:
-  epochs: 5
+  epochs: 3
   lr: 0.005
 
 model:
@@ -16,7 +16,7 @@ data:
   - "vehicle"
 
 unlearning:
-  noise_scale: 0.5
+  noise_scale: 0.05
   noise_scale2: 0.005
   transpose: True
   reinit_last: True
