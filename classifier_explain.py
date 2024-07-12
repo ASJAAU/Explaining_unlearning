@@ -25,6 +25,7 @@ if __name__ == "__main__":
     parser.add_argument("weights", type=str, help="Path to the model weight file")
     #Optional
     parser.add_argument("--split", default="test", help="Which datasplit to use", choices=["train","test","valid"])
+    parser.add_argument("--overide_csv", type=str, default=None, help="Provide an path to another CSV than specified in the config")
     parser.add_argument("--device", default="cuda:0", help="Which device to prioritize")
     parser.add_argument("--output", default="./explained/", help="Where to save image explinations")
     parser.add_argument("--heatmap", action="store_true", help="Enable only saving heatmap")
@@ -47,9 +48,16 @@ if __name__ == "__main__":
 
     print("\n########## PREPARING DATA ##########")
     print("\n### LOADING TEST DATASET")
+    if args.overide_csv is not None:
+        print(f"OVERIDING DATASET CSV: {args.overide_csv}")
+        dataset_csv = args.overide_csv
+    else:
+        print(f"USING DATASET SPECIFIED BY CONFIG: {cfg["data"][args.split]}")
+        dataset_csv = cfg["data"][args.split]
+
     # initialize training dataset
     test_dataset = REPAIHarborfrontDataset(
-        data_split=cfg["data"][args.split],
+        data_split=dataset_csv,
         root=cfg["data"]["root"],
         classes=cfg["data"]["classes"],
         transform=test_transforms,
