@@ -63,7 +63,7 @@ if __name__ == "__main__":
         print(f"OVERIDING DATASET ROOT: {args.overide_root}")
         dataset_root = args.overide_root
     else:
-        print(f"USING DATASET SPECIFIED BY CONFIG: {cfg["data"]["root"]}")
+        print(f"USING DATASET SPECIFIED BY CONFIG: {cfg['data']['root']}")
         dataset_root = cfg["data"]["root"]
 
 
