@@ -32,4 +32,4 @@ def r2(preds, labels, idx=None):
     return None
 
 def HmCvr(heatmap, mask):
-    return np.sum(heatmap * mask) / np.sum(heatmap)
+    return np.sum(np.multiply(heatmap,mask)) / np.sum(heatmap)
