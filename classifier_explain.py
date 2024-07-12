@@ -6,6 +6,7 @@ import numpy as np
 from tqdm import tqdm
 import csv
 import matplotlib.pyplot as plt
+import matplotlib
 from collections import defaultdict
 
 from torchvision.io import read_image
@@ -31,6 +32,7 @@ if __name__ == "__main__":
     parser.add_argument("--output", default="./explained/", help="Where to save image explinations")
     parser.add_argument("--heatmap", action="store_true", help="Enable only saving heatmap")
     parser.add_argument("--visualization", action="store_true", help="Enable Matplotlib Visualization")
+    parser.add_argument("--bbox", action="store_true", help="Draw bboxes on the images and save them")
     parser.add_argument("--mask", action="store_true", help="Calculate heatmap coverage")
     parser.add_argument("--colormap", default='jet', help="Which Matplotlib Colormap to use")
     parser.add_argument("--show", action="store_true", help="Enable rendering the visualization on screen")
@@ -105,7 +107,7 @@ if __name__ == "__main__":
 
     print("\n########## EXPLAINING MODEL ##########")
     batch_size = 2
-    for i in tqdm(range(0, len(input_files), batch_size)):
+    for i in tqdm(range(0, len(input_files), batch_size), desc="Batches"):
         #Load images
         file_paths = input_files[i:min(i+batch_size,len(input_files))] 
         imgs = [read_image(img_path) for img_path in file_paths]
@@ -118,7 +120,7 @@ if __name__ == "__main__":
 
         #Explain
         predictions, salient_map = sidu(model, model.layer4[2].act3, input, args.device)
-        for j in range(len(imgs)):
+        for j in tqdm(range(len(imgs)), desc="Samples", leave=False):
             #visualize
             if args.visualization:
                 outpath = os.path.join(args.output + "/visualize/", os.path.dirname(file_paths[j].replace(test_dataset.root, "")))
@@ -132,7 +134,8 @@ if __name__ == "__main__":
                 existsfolder(outpath)
                 im = visualize_heatmap(imgs[j].squeeze(0), salient_map[j], cmap=args.colormap)
                 output_filename = os.path.splitext(os.path.basename(file_paths[j]))[0] + ".npy"
-                np.save(outpath + "/" + output_filename, salient_map)
+                plt.imsave(outpath + "/" + output_filename[:-3]+"jpg", salient_map[j], cmap=args.colormap)
+                np.save(outpath + "/" + output_filename, salient_map[j])
 
             if args.mask:
                 outpath = os.path.join(args.output+"/mask/", os.path.dirname(file_paths[j].replace(test_dataset.root, "")))
@@ -157,5 +160,31 @@ if __name__ == "__main__":
                     np.save(outpath + "/" + output_filename, value)
                     plt.imsave(outpath + "/" + output_filename[:-3]+"jpg", value, cmap="gray")
 
-                #Close any MPL renderers
-                plt.close('all')
+            if args.bbox:
+                colors = {
+                    "human": (0.25,1.0,0.25,1.0),
+                    "bicycle": (1.0,0,0,1.0),
+                    "vehicle": (0.0,0.0,1.0,1.0),
+                    "motorcycle":(0.0,1.0,1.0,1.0),
+                }
+                outpath = os.path.join(args.output+"/boundingboxes/", os.path.dirname(file_paths[j].replace(test_dataset.root, "")))
+                existsfolder(outpath)
+                fig, ax = plt.subplots()
+                ax.imshow(imgs[j].squeeze(0), cmap="gray")
+
+                #Load annotation
+                with open(os.path.join(test_dataset.root, file_paths[j].replace("frames/","annotations/").replace("image","annotations").replace("jpg","txt")), 'r') as f:
+                    reader = csv.reader(f, delimiter=" ")
+                    for row in reader:
+                        if row != ''.join(row).strip(): #ignore empty annotations
+                            #Get class name
+                            cls_name = row[1]
+                            #Get object boundingbox
+                            bbox = [int(row[2]), int(row[3]), int(row[4]), int(row[5])]
+                            ax.add_patch(matplotlib.patches.Rectangle((bbox[0], bbox[1]), abs(bbox[2]-bbox[0]), abs(bbox[3]- bbox[1]), linewidth=1, edgecolor=colors[cls_name], facecolor='none'))
+   
+                output_filename = os.path.basename(file_paths[j])
+                fig.savefig(outpath + "/" + output_filename)
+
+            #Close any MPL renderers
+            plt.close('all')

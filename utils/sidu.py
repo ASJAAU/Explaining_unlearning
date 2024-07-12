@@ -97,7 +97,7 @@ def generate_masks(img_size: tuple, feature_map: torch.Tensor) -> torch.Tensor:
     masks = torch.Tensor(np.empty((N,*img_size))).to(feature_map.device).float()
     
     #Iterate through each mask
-    for i in tqdm(range(N), desc="Generating masks"):
+    for i in tqdm(range(N), desc="Generating masks", leave=False):
         #Access specific channel of featuremap
         features = feature_map[i,:,:]
         #Convert to Binary mask
@@ -168,7 +168,7 @@ def sidu(model: torch.nn.Module, layer: torch.nn.Module, inputs: torch.Tensor, d
             masked = masks.unsqueeze(1) * input
 
             #Process masked predictions
-            for j in tqdm(range(0,N,batch_size), desc="Explaining"):
+            for j in tqdm(range(0,N,batch_size), desc="Explaining", leave=False):
                 masked_predictions.append(model(masked[j:min(j+batch_size,N)].to(device).float()))
             
             #align predictions

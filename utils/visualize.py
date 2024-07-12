@@ -53,19 +53,26 @@ def visualize_prediction(image, predictions=None, groundtruth=None, heatmaps=Non
         else:
             assert len(len_heatmaps) <= len(classes), "The length of 'heatmaps' argument needs to be equal or larger than length of predictions"
 
+        #Write prediction
+        text = [f"{classes[i]} - pred:{round(float(predictions[i]),2)} gt: {groundtruth[i] if groundtruth is not None else ''}\n" for i in range(len(predictions))]
+        props = dict(boxstyle='round', facecolor='wheat', alpha=0.8)
+        axs[0].text(0.05, 0.95, "".join(text), transform=axs[0].transAxes, fontsize=12, verticalalignment='top', bbox=props)
+
+
         #Draw heatmaps
         for i in range(len_heatmaps):
             #Remove graph ticks
             axs[i+1].axis('off')
             #Set image
             axs[i+1].set_title(f"Heatmap: {classes[i]}")
-            axs[i+1].imshow(image, aspect='equal')
+            axs[i+1].imshow(image, aspect='equal', cmap='gray')
             #Set heatmap
             hmap = axs[i+1].imshow(heatmaps[i], cmap=cmap, alpha=0.5)
             #Plot Colorbar / colormap
             cax = axs[i+1].inset_axes([0.2, -0.04, 0.6, 0.04], transform=axs[i+1].transAxes)
             cax.axis('off')
-            #fig.colorbar(hmap, cax=cax, orientation='horizontal')
+            fig.colorbar(hmap, cax=cax, orientation='horizontal')
+            
 
     #Compress padding
     fig.tight_layout()

@@ -29,25 +29,35 @@ def load_annotations(sample_name, img_path, ann_path):
     ocls = []
     centers = []
 
+    label_map = {
+    "human"      : "human",
+    "bicycle"    : "bicycle",
+    "motorcycle" : "motorcycle",
+    "vehicle"    : "vehicle",
+    "vehicie"    : "vehicle",
+    }
     
     #Load annotations
-    with open(ann_path, "r") as annotations:
-        reader = csv.reader(annotations, delimiter=" ")
-        for row in reader:
-            if row != ''.join(row).strip(): #ignore empty annotations
-                #Add unique object id                
-                uids.append(int(row[0]))
-                #Add class labels
-                labels.append(row[1])
-                #Add occlusion tags
-                ocls.append(int(row[6]))
-                #Add bounding box
-                #boxes.append([int(row[2]), int(row[3]), int(row[4]), int(row[5])]) #Xtopleft, Ytopleft, Xbottomright, Ybottomright
-                boxes.append([int(row[2]), int(row[3]), abs(int(row[4])-int(row[2])), abs(int(row[5])-int(row[3]))]) #X,Y,W,H
-                #Add boundingbox Centers
-                centers.append([int(row[2]), int(row[3])])
-                #Add areas
-                areas.append(abs(int(row[4])-int(row[2])) * abs(int(row[5])-int(row[3])))
+    if os.path.exists(ann_path):
+        with open(ann_path, "r") as annotations:
+            reader = csv.reader(annotations, delimiter=" ")
+            for row in reader:
+                if row != ''.join(row).strip(): #ignore empty annotations
+                    #Add unique object id                
+                    uids.append(int(row[0]))
+                    #Add class labels
+                    labels.append(label_map[row[1]])
+                    #Add occlusion tags
+                    #ocls.append(int(row[6]))
+                    #Add bounding box
+                    #boxes.append([int(row[2]), int(row[3]), int(row[4]), int(row[5])]) #Xtopleft, Ytopleft, Xbottomright, Ybottomright
+                    boxes.append([int(row[2]), int(row[3]), abs(int(row[4])-int(row[2])), abs(int(row[5])-int(row[3]))]) #X,Y,W,H
+                    #Add boundingbox Centers
+                    centers.append([int(row[2]), int(row[3])])
+                    #Add areas
+                    areas.append(abs(int(row[4])-int(row[2])) * abs(int(row[5])-int(row[3])))
+    else:
+        print(f"MISSING: {ann_path}")
 
     #Parse timestamp from samplename
     timestamp =  datetime.datetime.fromisoformat('{}-{}-{} {}:{}'.format(sample_name[:4],  #Year
@@ -86,7 +96,10 @@ ANNO_CATEGORIES = {
     "human"      : 0,
     "bicycle"    : 1,
     "motorcycle" : 2,
-    "vehicle"    : 3,}
+    "vehicle"    : 3,
+    "vehicie"    : 3,
+    }
+
 
 if __name__ == "__main__":
     parser  = argparse.ArgumentParser("Generate XAI/MU CSV from Harborfront txt")
