@@ -30,3 +30,6 @@ def rmse(preds, labels, idx=None):
 
 def r2(preds, labels, idx=None):
     return None
+
+def HmCvr(heatmap, mask):
+    return np.sum(heatmap * mask) / np.sum(heatmap)
