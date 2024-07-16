@@ -16,7 +16,7 @@ evaluation:
 model:
   arch: "resnet50d" 
   task: "counting"
-  exp: "Baseline_all_classes"
+  exp: "original"
 
 data:
   classes:
@@ -25,11 +25,11 @@ data:
   - "motorcycle"
   - "vehicle"
   augment: True
-  root: "data/"
-  train: "data/annotations.csv"
-  valid: "data/annotations.csv"
-  test: "data/annotations.csv"
-  target_format: 'counts' #Alternative is 'multicount' (class-wise counting)
+  root: "data/example_data/"
+  train: "data/example_data/annotations.csv"
+  valid: "data/example_data/annotations.csv"
+  test: "data/example_data/annotations.csv"
+  target_format: 'counts' #Alternative is 'multilabel_counts' (class-wise counting)
 
 wandb:
   enabled: False

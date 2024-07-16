@@ -29,17 +29,17 @@ if __name__ == "__main__":
     parser.add_argument("--overide_root", type=str, default=None, help="Provide another root path for the dataset than specified in the config")
     parser.add_argument("--overide_csv", type=str, default=None, help="Provide an path to another CSV than specified in the config")
     parser.add_argument("--device", default="cuda:0", help="Which device to prioritize")
-    parser.add_argument("--output", default="./explained/", help="Where to save image explinations")
+    parser.add_argument("--output", default="./assets/explanations/", help="Where to save image explinations")
     parser.add_argument("--heatmap", action="store_true", help="Enable only saving heatmap")
     parser.add_argument("--visualization", action="store_true", help="Enable Matplotlib Visualization")
     parser.add_argument("--bbox", action="store_true", help="Draw bboxes on the images and save them")
-    parser.add_argument("--mask", action="store_true", help="Calculate heatmap coverage")
+    parser.add_argument("--mask", action="store_true", help="Generate object masks to use for HC calculation")
     parser.add_argument("--colormap", default='jet', help="Which Matplotlib Colormap to use")
     parser.add_argument("--show", action="store_true", help="Enable rendering the visualization on screen")
     parser.add_argument("--verbose", default=False, action='store_true', help="Enable verbose status printing")
     args = parser.parse_args()        
 
-    print("\n########## CLASSIFY-EXPLAIN-REMOVE ##########")
+    print("\n########## COUNT-EXPLAIN-REMOVE ##########")
     # Load configs
     cfg = get_config(args.config)
 
@@ -94,9 +94,6 @@ if __name__ == "__main__":
     try:
         model.load_state_dict(torch.load(args.weights))
         print(f"Loaded weights from '{args.weights}'")
-
-        #Print model summary
-        # print(model)
     except:
         raise Exception(f"Failed to load weights from '{args.weights}'")
     
@@ -106,7 +103,7 @@ if __name__ == "__main__":
     gts = list(test_dataset.labels)
 
     print("\n########## EXPLAINING MODEL ##########")
-    batch_size = 2
+    batch_size = cfg["training"]["batch_size"]
     for i in tqdm(range(0, len(input_files), batch_size), desc="Batches"):
         #Load images
         file_paths = input_files[i:min(i+batch_size,len(input_files))] 

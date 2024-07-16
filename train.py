@@ -15,16 +15,17 @@ import timm
 
 if __name__ == "__main__":
     #CLI
-    parser = argparse.ArgumentParser("Train a multi-class binary classifier ")
+    parser = argparse.ArgumentParser("Train XAI-MU model")
     #Positionals
     parser.add_argument("config", type=str, help="Path to config file (YAML)")
     #Optional
+    parser.add_argument("--weights", default=None, help="Optional path to weights for fintuning" )
     parser.add_argument("--device", default="cuda:0", help="Which device to prioritize")
-    parser.add_argument("--output", default="./assets/", help="Where to save the model weights")
+    parser.add_argument("--output", default="./assets/train/", help="Where to save the model weights")
     parser.add_argument("--verbose", default=False, action='store_true', help="Enable verbose status printing")
     args = parser.parse_args()        
 
-    print("\n########## CLASSIFY-EXPLAIN-REMOVE ##########")
+    print("\n########## COUNT-EXPLAIN-REMOVE ##########")
     #Load configs
     cfg = get_config(args.config)
 
@@ -117,6 +118,14 @@ if __name__ == "__main__":
             in_chans=1, 
             num_classes = num_cls,
             ).to(args.device)
+    
+    #Load optional weights
+    if args.weights is not None:
+        try:
+            model.load_state_dict(torch.load(args.weights))
+            print(f"Loaded weights from '{args.weights}'")
+        except:
+            raise Exception(f"Failed to load weights from '{args.weights}'")
 
     #Define optimizer
     optimizer = torch.optim.SGD(
@@ -137,7 +146,7 @@ if __name__ == "__main__":
         raise Exception(f"UNKNOWN LOSS: '{cfg['training']['loss']}' must be one of the following: 'l1', 'mse', 'huber' ")
 
     #Create output folder
-    out_folder = f'{args.output}/{cfg["model"]["task"]}-{cfg["model"]["arch"]}-{datetime.now().strftime("%Y_%m_%d_%H-%M")}'
+    out_folder = f'{args.output}/{cfg["model"]["exp"]}/{datetime.now().strftime("%Y_%m_%d_%H-%M-%S")}/'
     print(f"Saving weights and logs at '{out_folder}'")
     existsfolder(out_folder)
     existsfolder(out_folder+"/weights")
@@ -242,6 +251,6 @@ if __name__ == "__main__":
                         },
                     )
                     val_loss = 0
-
+                    print(val_logs)
         #Save Model
-        torch.save(model.state_dict(), out_folder + "/weights/" + f'{cfg["model"]["arch"]}-{cfg["model"]["task"]}-Epoch{epoch}.pt')
+        torch.save(model.state_dict(), out_folder + "/weights/" + f'{cfg["model"]["arch"]}-{cfg["model"]["task"]}-f{cfg["model"]["arch"]}-E{epoch}.pt')

@@ -15,19 +15,20 @@ import timm
 
 if __name__ == "__main__":
     # CLI
-    parser = argparse.ArgumentParser("Train a multi-class binary classifier ")
+    parser = argparse.ArgumentParser("Test XAI-MU model")
     # Positionals
     parser.add_argument("config", type=str, help="Path to config file (YAML)")
     parser.add_argument("weights", type=str, help="Path to the model weight file")
     # Optional
+    parser.add_argument("--split", type=str, default="test", help="which datasplit from the config to use")
     parser.add_argument("--overide_root", type=str, default=None, help="Provide another root path for the dataset than specified in the config")
     parser.add_argument("--overide_csv", type=str, default=None, help="Provide an path to another CSV than specified in the config")
     parser.add_argument("--device", default="cuda:0", help="Which device to prioritize")
-    parser.add_argument("--output", default="./eval/", help="Where to save the evaluation ouputs if any")
+    parser.add_argument("--output", default="./assets/test/", help="Where to save the evaluation ouputs if any")
     parser.add_argument("--verbose", default=False, action='store_true', help="Enable verbose status printing")
     args = parser.parse_args()        
 
-    print("\n########## CLASSIFY-EXPLAIN-REMOVE ##########")
+    print("\n########## COUNT-EXPLAIN-REMOVE ##########")
     # Load configs
     cfg = get_config(args.config)
 
@@ -95,9 +96,6 @@ if __name__ == "__main__":
     try:
         model.load_state_dict(torch.load(args.weights))
         print(f"Loaded weights from '{args.weights}'")
-
-        #Print model summary
-        # print(model)
     except:
         raise Exception(f"Failed to load weights from '{args.weights}'")
 

@@ -91,7 +91,6 @@ def generate_unique_image_id(dateobj,clipname):
         f'{dateobj.minute}'.zfill(2)+
         f'{dateobj.second}'.zfill(2))
 
-
 ANNO_CATEGORIES = {
     "human"      : 0,
     "bicycle"    : 1,
@@ -99,7 +98,6 @@ ANNO_CATEGORIES = {
     "vehicle"    : 3,
     "vehicie"    : 3,
     }
-
 
 if __name__ == "__main__":
     parser  = argparse.ArgumentParser("Generate XAI/MU CSV from Harborfront txt")

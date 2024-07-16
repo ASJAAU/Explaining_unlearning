@@ -17,14 +17,14 @@ import numpy as np
 
 class Test_Dataloader(unittest.TestCase):
     def test_dataset(self):
-        dataset = REPAIHarborfrontDataset("data/Test_data.csv", "/Data/Harborfront_raw/", verbose=True)
+        dataset = REPAIHarborfrontDataset("data/Test_data.csv", "data/example_data/", verbose=True)
         print(dataset)
         print("------ Dataset overview ------")
         print(dataset.__repr__())
         return True
     
     def test_dataloader(self):
-        dataset = REPAIHarborfrontDataset("data/Test_data.csv", "/Data/Harborfront_raw/")
+        dataset = REPAIHarborfrontDataset("data/Test_data.csv", "data/example_data/")
         dataloader = DataLoader(
         dataset, 
         batch_size=12, 

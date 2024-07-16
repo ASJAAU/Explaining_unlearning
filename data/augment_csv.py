@@ -4,7 +4,7 @@ import os
 __AUG_TYPES__ = ["duplicate_rare", "duplicate_nonhuman", "remove_empty"]
 
 if __name__ == "__main__":
-    parser  = argparse.ArgumentParser("Generate COCO annotations from Harborfront txt")
+    parser  = argparse.ArgumentParser("Simple augmentation of unbalanced data by super/under-sampling")
     
     #REQUIRED
     parser.add_argument('input', help="Path to the subset to augment")
