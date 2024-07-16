@@ -7,6 +7,7 @@ from tqdm import tqdm
 from utils.utils import existsfolder
 import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap
+from PIL import Image
 
 if __name__ == "__main__":
     classes = ["human","bicycle","motorcycle","vehicle"]
@@ -32,12 +33,15 @@ if __name__ == "__main__":
         #Store heatmap coverage
         HmCvr_values = []
         shift_stds = []
+        shift_maps = []
+        largest_shift = 0
         for hmap_path in heatmap_paths:
             #Load class specified masks
             masks = []
             classes_present = {}
             hmap = np.load(hmap_path)
-            print(hmap.shape)
+            hmap /= np.sum(hmap)
+            #print(hmap.shape)
             for cls in args.classes:
                 mask_path = hmap_path.replace("heatmap", "mask")[:-4] + f"_{cls}.npy"
                 mask = np.where(np.load(mask_path)>0, 1, 0)
@@ -52,9 +56,9 @@ if __name__ == "__main__":
             #Remove overlap with classes
             if args.remove_overlap is not None:
                 for overlap in args.remove_overlap:
-                    mask_path = hmap_path.replace("heatmap", "mask")[:-4] + f"_{cls}.npy"
+                    mask_path = hmap_path.replace("heatmap", "mask")[:-4] + f"_{overlap}.npy"
                     mask = np.where(np.load(mask_path)>0, 1, 0)
-                    tmp = final_mask
+                    #tmp = final_mask
                     final_mask = np.where((final_mask-mask) > 0, 1, 0)
                     #print(f"removed {overlap}")
                     #print(f"{abs(np.sum(tmp)-np.sum(final_mask))} values changed")
@@ -63,22 +67,35 @@ if __name__ == "__main__":
             #Only calculate for image with objects of interest in them
             if any(classes_present.values()):
                 #Calculate HmCvr
+                #print(hmap.shape, final_mask.shape)
                 score = HmCvr(hmap, final_mask)
                 HmCvr_values.append(score)
 
             if args.original is not None:
                 org_hmap = np.load(hmap_path.replace(model, args.original))
+                org_hmap /= np.sum(org_hmap)
+                #print(hmap.shape, org_hmap.shape)
                 shift = hmap - org_hmap
                 shift_stds.append(np.std(shift))
                 existsfolder(os.path.dirname(hmap_path.replace("heatmap", "shift")))
-                print(shift.shape)
+                #print(shift.shape)
                 np.save(hmap_path.replace("heatmap", "shift"), shift)
-                plt.imsave(hmap_path.replace("heatmap", "shift")[:-4] + f".jpg", (shift[0]/np.abs(shift[0]).max()), cmap=LinearSegmentedColormap.from_list('rg',['r','w','g'], N=256))
+                shift_maps.append((shift, hmap_path.replace("heatmap", "shift")[:-4] + f".jpg"))
+                largest_shift = max(np.abs(shift).max(), largest_shift)
+                #att_image = LinearSegmentedColormap.from_list('rg',['r','w','g'], N=256)()
+                #plt.imsave(hmap_path.replace("heatmap", "shift")[:-4] + f".jpg", att_image)
 
 
+        #print(HmCvr_values)
         print(f"{model} - HmCvr:{np.sum(HmCvr_values)/len(HmCvr_values)}")
-        print(f"{model} - AttShift: {np.sum(shift_stds)/len(shift_stds)}")
-
+        if args.original is not None:
+            print(f"{model} - AttShift: {np.sum(shift_stds)/len(shift_stds)}")
+            cmapping = LinearSegmentedColormap.from_list('rg', ['r','w','g'],N=256)
+            largest_shift *= 0.5 #Scaling factor for visualization
+            if largest_shift <= 0:
+                print(f"WARNING: Shift magnitude is {largest_shift} for {model}")
+            for shiftmap in shift_maps:
+                plt.imsave(shiftmap[1], shiftmap[0], cmap=cmapping, vmax=largest_shift, vmin=-largest_shift)
 
 
 
