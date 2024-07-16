@@ -15,7 +15,7 @@ evaluation:
 
 model:
   arch: "resnet50d" 
-  task: "counter"
+  task: "counting"
   exp: "Baseline_all_classes"
 
 data:
@@ -25,18 +25,18 @@ data:
   - "motorcycle"
   - "vehicle"
   augment: True
-  root: "/Data/Harborfront_raw/"
-  train: "/Data/Harborfront_raw/repai/aug_Train_data.csv"
-  valid: "/Data/Harborfront_raw/repai/Valid_data.csv"
-  test: ".data/test_demo.csv"
-  target_format: 'counts'
+  root: "data/"
+  train: "data/annotations.csv"
+  valid: "data/annotations.csv"
+  test: "data/annotations.csv"
+  target_format: 'counts' #Alternative is 'multicount' (class-wise counting)
 
 wandb:
-  enabled: True
+  enabled: False
   plotting: True
   resume: null
-  project_name: "MU+XAI Workshop"
-  entity: "repai"
+  project_name: "Explaining Unlearning"
+  entity: "user"
   tags:
     - Baseline
     - Augmentation
