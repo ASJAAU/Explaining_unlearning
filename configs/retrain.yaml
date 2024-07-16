@@ -1,4 +1,4 @@
-base: "./configs/config.yaml"
+base: "configs/original.yaml"
 model:
   exp: "Baseline_wo_human"
 data:
