@@ -16,7 +16,7 @@ from torchvision.transforms import v2 as torch_transforms
 from utils.utils import existsfolder, get_config, get_valid_files, Logger
 from utils.sidu import *
 from utils.visualize import visualize_prediction, visualize_heatmap
-from data.dataloader import REPAIHarborfrontDataset
+from utils.dataloader import REPAIHarborfrontDataset
 
 if __name__ == "__main__":
     #CLI

@@ -4,7 +4,7 @@ import subprocess
 import unittest
 
 #Dataset testing
-from data.dataloader import REPAIHarborfrontDataset
+from utils.dataloader import REPAIHarborfrontDataset
 from torch.utils.data import DataLoader
 
 #Metrics testing
