@@ -1,0 +1,45 @@
+base: ""
+
+training:
+  epochs: 10
+  lr: 0.01
+  batch_size: 50
+  log_freq: 500 #Number of batches
+  loss: "mse"
+
+evaluation:
+  metrics:
+  - "rmse"
+  - "mae"
+  val_freq: 5000
+
+model:
+  arch: "resnet50d" 
+  task: "counting"
+  exp: "original"
+
+data:
+  classes:
+  - "human"
+  - "bicycle"
+  - "motorcycle"
+  - "vehicle"
+  augment: True
+  root: "data/example_data/"
+  train: "data/example_data/annotations.csv"
+  valid: "data/example_data/annotations.csv"
+  test: "data/example_data/annotations.csv"
+  target_format: 'counts' #Alternative is 'multilabel_counts' (class-wise counting)
+
+wandb:
+  enabled: False
+  plotting: True
+  resume: null
+  project_name: "Explaining Unlearning"
+  entity: "user"
+  tags:
+    - Baseline
+    - Augmentation
+
+unlearning:
+  method: null

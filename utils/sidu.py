@@ -76,7 +76,7 @@ def similarity_differences(orig_predictions: torch.Tensor, masked_predictions: t
     weights = kernel(diff)
     return weights, diff
 
-def generate_masks(img_size: tuple, feature_map: torch.Tensor, s: int = 8) -> torch.Tensor:
+def generate_masks(img_size: tuple, feature_map: torch.Tensor) -> torch.Tensor:
     r""" Generate masks from the feature map
 
     Args:
@@ -84,30 +84,27 @@ def generate_masks(img_size: tuple, feature_map: torch.Tensor, s: int = 8) -> to
             The size of the input image [H,W]
         feature_map: torch.Tensor
             The feature map from the model [C,H,W]
-        s: int
-            The scale factor
 
     Returns:
         masks: torch.Tensor
             The generated masks
     """
-    cell_size = np.ceil(np.array(img_size) / s)
 
-    grid = feature_map.detach().clone()
+    grid = feature_map.cpu().detach().clone()
     N = feature_map.shape[0]
 
     #Masks placeholder of N masks
-    masks = np.empty((N,*img_size))
+    masks = torch.Tensor(np.empty((N,*img_size))).to(feature_map.device).float()
     
     #Iterate through each mask
-    for i in tqdm(range(N), desc="Generating masks"):
+    for i in tqdm(range(N), desc="Generating masks", leave=False):
         #Access specific channel of featuremap
         features = feature_map[i,:,:]
         #Convert to Binary mask
         features = (features > 0.15).float()
         #Upsample the binary mask using Bi-linear interpolation
         masks[i,:,:] = torch.nn.functional.interpolate(features.unsqueeze(0).unsqueeze(0), size=(img_size), mode='bilinear', align_corners=True).squeeze(0).squeeze(0)
-    return torch.from_numpy(masks), grid, cell_size
+    return masks, grid
 
 def get_intermediate_output(name):
     activation = {}
@@ -115,7 +112,7 @@ def get_intermediate_output(name):
         activation[name] = output.detach()
     return hook
 
-def sidu(model: torch.nn.Module, layer: torch.nn.Module, input: torch.Tensor, device: torch.device = torch.device("cpu")) -> torch.Tensor:
+def sidu(model: torch.nn.Module, layer: torch.nn.Module, inputs: torch.Tensor, device: torch.device = torch.device("cpu")) -> torch.Tensor:
     r""" SIDU SImilarity Difference and Uniqueness method
     Note: The original implementation processes B,H,W,C as per TF standard, where Torch uses BCHW
     
@@ -151,35 +148,34 @@ def sidu(model: torch.nn.Module, layer: torch.nn.Module, input: torch.Tensor, de
     #Disable AutoGrad
     with torch.no_grad():
         #Forward pass to extract base predictions and intermediary featuremaps
-        orig_predictions = model(input)
-        predictions.append(orig_predictions.detach().numpy())
-        orig_feature_map = intermediates["repr"].detach().clone()
-
-        # #Iterate over the batch dimension
-        for i in tqdm(range(input.shape[0]), desc="Processing sample"):
+        for input in inputs:
+            input = input.unsqueeze(0)
+            orig_predictions = model(input).squeeze(0)
+            predictions.append(orig_predictions.detach().cpu().numpy())
+            orig_feature_map = intermediates["repr"].detach().clone().squeeze(0)
 
             #Generate masks
-            masks, grid, cell_size = generate_masks((input.shape[-2],input.shape[-1]), orig_feature_map[i], s=8)
+            masks, grid, = generate_masks((input.shape[-2],input.shape[-1]), orig_feature_map)
             N = masks.shape[0]
         
             #Predictions (explain_SIDU in original TF)
             masked_predictions = []
 
             #Masked batches
-            batch_size = 100
+            batch_size = 50
 
             #apply masks to all 3 channels (with some channel shuffle)
             masked = masks.unsqueeze(1) * input
 
             #Process masked predictions
-            for j in tqdm(range(0,N,batch_size), desc="Explaining"):
-                masked_predictions.append(model(masked[j:min(j+batch_size,N)].float()))
+            for j in tqdm(range(0,N,batch_size), desc="Explaining", leave=False):
+                masked_predictions.append(model(masked[j:min(j+batch_size,N)].to(device).float()))
             
             #align predictions
-            masked_predictions = torch.Tensor(np.concatenate(masked_predictions, axis=0)).double()
+            masked_predictions = torch.cat(masked_predictions, dim=0).double()
 
             #Compute weights and differences
-            weights, diff = similarity_differences(orig_predictions[i],masked_predictions)
+            weights, diff = similarity_differences(orig_predictions,masked_predictions)
 
             #Compute uniqueness to infer sample uniqueness
             uniqueness = uniqness_measure(masked_predictions)
@@ -195,7 +191,7 @@ def sidu(model: torch.nn.Module, layer: torch.nn.Module, input: torch.Tensor, de
             saliency_map /= N
 
             #Add to list of maps
-            maps.append(saliency_map.numpy())
+            maps.append(saliency_map.cpu().squeeze(0).numpy())
 
     #Return entire batch
     return predictions, maps
@@ -215,7 +211,7 @@ if __name__ == '__main__':
         torch_transforms.ToTensor(),
     ])
 
-    img_paths = ["H:/Work\REPAI/Explaining_unlearning/data/sidu_test.jpg"]
+    img_paths = ["H:/Work\REPAI/Explaining_unlearning/data/sidu_test.jpg"]*4
 
     #Load image / images    
     input = [read_image(img_path) for img_path in img_paths]

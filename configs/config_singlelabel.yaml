@@ -1,4 +1,0 @@
-base: "configs/config.yaml"
-
-data:
-  target_format: 'counts'
