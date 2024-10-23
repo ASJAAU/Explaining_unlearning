@@ -35,7 +35,7 @@ if __name__ == "__main__":
 
 
 
-    print("\n########## CLASSIFY-EXPLAIN-REMOVE ##########")
+    print("\n########## COUNT-EXPLAIN-REMOVE ##########")
     #Load configs
     cfg = get_config(args.config)
 
@@ -235,11 +235,11 @@ if __name__ == "__main__":
             #Check for loggin frequency
             if i % cfg["training"]["log_freq"] == 0:
                 logs = logger.log(
-                    xargs={
-                        "loss": running_loss
-                    },
                     clear_buffer=True,
-                    prepend='train'
+                    prepend='train',
+                    xargs={
+                        "loss": running_loss/cfg["training"]["log_freq"]
+                    },
                 )
                 running_loss = 0
                 #print(logs)
