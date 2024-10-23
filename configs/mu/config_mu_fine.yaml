@@ -2,16 +2,18 @@ base: "configs/config.yaml"
 
 training:
   epochs: 3
-  lr: 0.0005
+  lr: 0.005
 
 model:
-  exp: "MU02"
+  exp: "MU03"
 
 data:
   target_format: "counts"
   augment: True
   classes:
-  - "human"
+  - "bicycle"
+  - "motorcycle"
+  - "vehicle"
 
 unlearning:
   method: "fine_tune"
@@ -24,4 +26,4 @@ wandb:
     - Human
     - single_count
     - fine_tune
-    - resilient-tree-3
+    - leafy-darkness-85

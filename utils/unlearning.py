@@ -215,7 +215,6 @@ class ForgetLoss(nn.Module):
                 #Assert original is a torch model if using sebastian_unlearn        
                 assert isinstance(original, torch.nn.Module) if unlearning_method == "sebastian_unlearn" else True, f"ORIGINAL: '{original}' must be a torch model"                                                  
                 self.original = original
-                self.lambda_ = lambda_
                 #Freeze original model
                 for param in self.original.parameters():
                     param.requires_grad = False
@@ -234,7 +233,7 @@ class ForgetLoss(nn.Module):
         else:
             raise Exception(f"COUNTS: 'counts' must be in the target format")                                                            
 
-    def forward(self, inputs, outputs, labels):
+    def forward(self, outputs, labels):
         if "counts" in self.target_format:
             if "multilabel" in self.target_format:
                 labels = self.set_unlearn_target(labels)
@@ -245,7 +244,7 @@ class ForgetLoss(nn.Module):
                 elif self.unlearning_method == "sebastian_unlearn":
                     #Add MSE of entropy regularization
                     regularizer = torch.nn.MSELoss()
-                    return self.loss_fn(outputs, labels) + self.lambda_ * regularizer(labels, self.set_unlearn_target(self.original(inputs)))
+                    return self.loss_fn(outputs, labels)
                 else:
                     #Not implemented error
                     raise NotImplementedError(f"UNLEARNING METHOD: '{self.unlearning_method}' is not implemented")

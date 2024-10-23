@@ -15,7 +15,11 @@ from functools import partial
 from utils.utils import get_config, Logger
 import numpy as np
 
+
+__CONFIG__ = "./configs/mu/config_mu_fine.yaml"
+
 class Test_Dataloader(unittest.TestCase):
+    
     def test_dataset(self):
         dataset = REPAIHarborfrontDataset("data/Test_data.csv", "data/example_data/", verbose=True)
         print(dataset)
@@ -56,9 +60,10 @@ class Test_Logger(unittest.TestCase):
     def test_LogOutput(self):
         print("Testing ")
         #Retrieve Config
-        config = get_config("./configs/config.yaml")
+        config = get_config(__CONFIG__)
         #Disable logging to WANDB
         config["wandb"]["enabled"] = False
+        print(config)
         #Create logger
         MetricLogger = Logger(config, "./", classwise_metrics=config["data"]["classes"])
         #Create dummy samples

@@ -178,8 +178,10 @@ if __name__ == "__main__":
 
     if 'counts' in cfg["data"]["target_format"]:
         if 'multilabel' in cfg["data"]["target_format"]:
+            val_logger = Logger(cfg, out_folder=out_folder, metrics=cfg["evaluation"]["metrics"], classwise_metrics=cfg["data"]["classes"])
             logger = Logger(cfg, out_folder=out_folder, metrics=cfg["evaluation"]["metrics"], classwise_metrics=cfg["data"]["classes"])
         else:
+            val_logger = Logger(cfg, out_folder=out_folder, metrics=cfg["evaluation"]["metrics"])
             logger = Logger(cfg, out_folder=out_folder, metrics=cfg["evaluation"]["metrics"])
     elif 'binary' in cfg["data"]["target_format"]:
         if 'multilabel' in cfg["data"]["target_format"]:
@@ -222,7 +224,7 @@ if __name__ == "__main__":
             outputs = model(inputs)
             
             #Calculate loss
-            loss = loss_fn(inputs, outputs, labels)
+            loss = loss_fn(outputs, labels)
             loss.backward()
             running_loss += loss.item()
 
@@ -244,41 +246,71 @@ if __name__ == "__main__":
                 running_loss = 0
                 #print(logs)
 
+            #Log validation stats
+            if i % cfg["evaluation"]["val_freq"] == 0 or i >= len(train_dataloader)-1:
+                #Proceed to Validation
+                with torch.no_grad():
+                    val_loss = 0
+                    val_logger.clear_buffer()
+                    for j, val_batch in tqdm.tqdm(enumerate(valid_dataloader), unit="Batch", desc="Validating", leave=False, total=len(valid_dataloader)):
+                        #Seperate batch
+                        val_inputs, val_labels = val_batch
+                        
+                        #Forward
+                        outputs = model(val_inputs)
+
+                        #Calculate loss
+                        val_loss += loss_fn(outputs, val_labels).item()
+
+                        #Store prediction
+                        val_logger.add_prediction(outputs.detach().to("cpu").numpy(), val_labels.detach().to("cpu").numpy())
+
+                    #Log validation metrics
+                    val_logs = val_logger.log(
+                        clear_buffer=True,
+                        prepend='valid',
+                        extras=extra_plots,
+                        xargs={
+                            "loss": val_loss / len(valid_dataloader)
+                        },
+                    )
+                    val_loss = 0
+
         #Validate
-        model.eval()
-        running_loss = 0
-        logger.clear_buffer()
-        for i, batch in tqdm.tqdm(enumerate(valid_dataloader), unit="Batch", desc="Validating", leave=False, total=len(valid_dataloader)):
-            #Seperate batch
-            inputs, labels = batch
+        # model.eval()
+        # running_loss = 0
+        # logger.clear_buffer()
+        # for i, batch in tqdm.tqdm(enumerate(valid_dataloader), unit="Batch", desc="Validating", leave=False, total=len(valid_dataloader)):
+        #     #Seperate batch
+        #     inputs, labels = batch
             
-            #Forward
-            outputs = model(inputs)
+        #     #Forward
+        #     outputs = model(inputs)
 
-            #Calculate loss
-            loss = loss_fn(inputs, outputs, labels)
-            running_loss += loss.item() / len(valid_dataloader)
+        #     #Calculate loss
+        #     loss = loss_fn(inputs, outputs, labels)
+        #     running_loss += loss.item() / len(valid_dataloader)
 
-            #Log metrics
-            logger.add_prediction(outputs.detach().to("cpu").numpy(), labels.detach().to("cpu").numpy())
+        #     #Log metrics
+        #     logger.add_prediction(outputs.detach().to("cpu").numpy(), labels.detach().to("cpu").numpy())
 
-        #Check for loggin frequency
-        logs = logger.log(
-            clear_buffer=True,
-            prepend='valid',
-            extras=extra_plots,
-            xargs={
-                "loss": running_loss / len(valid_dataloader)
-            },
-        )
+        # #Check for loggin frequency
+        # logs = logger.log(
+        #     clear_buffer=True,
+        #     prepend='valid',
+        #     extras=extra_plots,
+        #     xargs={
+        #         "loss": running_loss / len(valid_dataloader)
+        #     },
+        # )
 
         #Save Model
         torch.save(model.state_dict(), out_folder + "/weights/" + f'{cfg["model"]["arch"]}-{cfg["model"]["task"]}-Epoch{epoch}.pt')
 
         #Confuse vision again for the last 2 epochs
-        if cfg["unlearning"]["method"] == "confuse_vision":
-            if epoch == epochs - 2:
-                cfg["unlearning"]["noise_scale"] = cfg["unlearning"]["noise_scale2"]
-                cfg["unlearning"]["trans"] = False
-                cfg["unlearning"]["reinit_last"] = False
-                model = confuse_vision(model, cfg)
+        # if cfg["unlearning"]["method"] == "confuse_vision":
+        #     if epoch == epochs - 3:
+        #         cfg["unlearning"]["noise_scale"] = cfg["unlearning"]["noise_scale2"]
+        #         cfg["unlearning"]["trans"] = False
+        #         cfg["unlearning"]["reinit_last"] = False
+        #         model = confuse_vision(model, cfg)
